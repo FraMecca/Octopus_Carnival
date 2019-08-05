@@ -44,10 +44,10 @@ let rec split l fst =
   | [] -> assert false
 
 
-let is_scala _cards =
-  let rec _is_scala cards =
+let is_straight _cards =
+  let rec _is_straight cards =
     match cards with
-    | hd::hd'::tl when hd=hd'-1 -> _is_scala (hd'::tl)
+    | hd::hd'::tl when hd=hd'-1 -> _is_straight (hd'::tl)
     | [] -> assert false
     | [_] -> true (* list was consumed *)
     | _::_ -> false in
@@ -58,9 +58,9 @@ let is_scala _cards =
     let last = List.rev _cards |> hd in
     let cards  = List.map (fun c -> c.value) _cards  (* use only values *) in
     if last.value = 13 && (hd cards) = 1 then (* circolare *)
-      let fst, snd = split cards [] in (_is_scala fst) && (_is_scala snd)
+      let fst, snd = split cards [] in (_is_straight fst) && (_is_straight snd)
     else
-      _is_scala cards
+      _is_straight cards
 
 let is_valid _cards =
   let cards = List.sort Cards.value_cmp _cards in
@@ -69,7 +69,7 @@ let is_valid _cards =
   else
     match cards with
     | a::b::_ when Cards.value_cmp a b = 0  -> is_tris cards
-    | _ -> is_scala cards;;
+    | _ -> is_straight cards;;
 
 
 let rec play cards =
@@ -117,10 +117,10 @@ in assert (is_valid cards);;
 
 let cards = [{seed=Hearts; value=1}] in
 let ingame = [{seed=Hearts; value=13}; {seed=Hearts; value=3}; {seed=Hearts; value=2}]
-in assert (play ingame cards);;
+in assert (start_play ingame cards);;
 
 let cards = [{seed=Tiles; value=12}; {seed=Tiles; value=13}; {seed=Pikes; value=3}; {seed=Clovers; value=3}] in
 let ingame = [{seed=Hearts; value=1}; {seed=Hearts; value=13}; {seed=Hearts; value=12};
               {seed=Pikes; value=1}; {seed=Clovers; value=1}; {seed=Tiles; value=1};
               {seed=Hearts; value=2}; {seed=Pikes; value=2}; {seed=Clovers; value=2}]
-in assert (start_play ingame cards);; (* Risultato: scala 1-2-12-13 Hearts; scala 1-2-3 Pikes; scala 1-2-3 Clovers; scala 1-13-12 Tiles *)
+in assert (start_play ingame cards);; (* Risultato: straight 1-2-12-13 Hearts; straight 1-2-3 Pikes; straight 1-2-3 Clovers; straight 1-13-12 Tiles *)
