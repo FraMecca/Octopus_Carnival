@@ -1,5 +1,10 @@
 from collections import namedtuple;
-from copy import copy
+from copy import deepcopy as copy # FUK
+
+MAX = -1000
+best = None
+DONE = False
+MEM = set()
 
 def flattenByValue(lst):
     return sorted([s for subl in lst for s in subl], key=lambda x: x.value)
@@ -11,10 +16,11 @@ def flattenBySeed(lst):
     return sorted([s for subl in lst for s in subl], key=lambda x: x.seed)
 
 def print_1(tavolo, n):
-    print('-------------',n,'-------------')
+    st = ('------------- '+str(n)+':'+str(tavolo.punteggio())+' -------------')
+    print(st)
     for t in tavolo.cards:
         print(t)
-    print('-------------',n,'-------------')
+    print(st)
 
 Card = namedtuple('Card', 'seed value')
 
@@ -34,9 +40,12 @@ class TaggedCards:
     tipo = ''
     def __init__(self, carte):
         assert type(carte) is list and type(carte[0]) is Card
-        self.cards = carte # lista di Carte
+        self.cards = list(sorted(carte, key=lambda x: str(x))) # lista di Carte
         self.tag = 'NonValido' if not is_valida(self.cards) else 'Valido'
-        self.tipo = 'Singolo' if len(carte) == 1 else 'Tris' if carte[0].seed != carte[1].seed else 'Scala'
+        self.tipo = 'Singolo' if len(carte) == 1 else 'Tris' if is_tris(carte) else 'Scala'
+
+    def __hash__(self):
+                return hash(tuple(self))
 
     def __repr__(self):
         return "TaggedCards<%s, %s, %s>" % (self.cards, self.tag, self.tipo)
@@ -44,10 +53,32 @@ class TaggedCards:
     def __iter__(self):
         return self.cards.__iter__()
 
+    def __eq__(self, other):
+        assert type(other) is type(self)
+        if len(other.cards) != len(self.cards) or self.tag != other.tag or self.tipo != other.tipo:
+            return False
+        else:
+            return set(self.cards) == set(other.cards)
+
+    def __gt__(self, other):
+        if self.tipo == 'Tris' and len(self.cards) == 4:
+            return False
+        if other.tipo == 'Tris' and len(other.cards) == 4:
+            return True
+        elif self.tipo != 'Singolo' and other.tipo == 'Singolo':
+            return True
+        elif self.tipo == 'Singolo' and other.tipo != 'Singolo':
+            return False
+        elif self.tag == 'NonValido' and other.tag == 'Valido':
+            return True
+        else:
+            return False
+
     def cardsByValue(self):
         return sorted(self.cards, key=lambda c: c.value)
     def cardsBySeed(self):
         return sorted(self.cards, key=lambda c: c.seed)
+
         
 class Tavolo:
     cards = list() # lista di taggedcards
@@ -73,51 +104,96 @@ class Tavolo:
     def getAll(self):
         # return list(flattenByValue(self.cards))
         return self.cards
+    def llen(self):
+        return len(flatten(self.getAll()))
+
+    def punteggio(self):
+        return len(self.getValide()) - len(self.getNonValide())
 
 def gioca(tavolo, giocata, da_muovere):
     assert type(da_muovere) is Card
     idx = tavolo.cards.index(giocata)
-    for current_tag in ['NonValido', 'Valido']:
-        for i, t in enumerate(tavolo.cards):
-            if t.tag == current_tag and da_muovere in t.cards:
-                t = [c for c in t.cards if c != da_muovere]
-                if t != []:
-                    tavolo.cards[i] = [TaggedCards(t)] # mettilo davanti cosi` che sia il primo
-                    # preso in considerazione
-                del tavolo.cards[idx]
-                tavolo.cards = [TaggedCards(giocata.cards + [da_muovere])] + tavolo.cards
-                return tavolo
-    assert False
+    news = [TaggedCards(giocata.cards + [da_muovere])]
+    rimpiazzata = False
+    for i, t in enumerate(tavolo.cards):
+        if i == idx:
+            continue # skip the one containing giocata
+        if not rimpiazzata and da_muovere in t.cards:
+            t = [c for c in t.cards if c != da_muovere]
+            if t != []:
+                # tavolo.cards[i] = TaggedCards(t) 
+                news.append(TaggedCards(t))
+            rimpiazzata = True
+            # tavolo.cards[idx] = TaggedCards(giocata.cards + [da_muovere])
+            # return tavolo
+        else:
+            news.append(t)
+    return Tavolo(news)
 
-def alg(tavolo, tavolo_iniziale, soluzioni, n):
+def non_migliora(punteggio):
+    assert type(punteggio) is list
+    if len(punteggio) <= 7:
+        return False
+    p = punteggio[-7:]
+    ma = max(p)
+    mi = min(p)
+    return abs(ma-mi) < 2
+
+def tavolo_rispettato(start, end):
+    start_mano = set([c for c in start.cards if c.tipo == 'Singolo'])
+    for e in end.cards:
+        if e.tipo == 'Singolo' and e not in start_mano:
+            return False
+    return True
+    
+
+def alg(tavolo, tavolo_iniziale, soluzioni, n, punteggio):
     # qua si presume di avere gia` tutte le carte della mano stese sul tavolo come gruppo singolo
     # di carte non valide (alla prima iterazione)
-    print_1(tavolo, n)
-    nonV = tavolo.getNonValide()
-    if n >= 20: # maximum depth
-        return
-    elif len(nonV) == 0:
+    global MAX, DONE, best, MEM
+    if DONE or str(tavolo) in MEM:
+        print('TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT')
         return
     else:
-        for carte in nonV:
+        DONE = len(tavolo.getNonValide()) == 0 # GLOBAL EXIT
+        MEM.add(str(tavolo))
+        print(len(MEM))
+
+    print_1(tavolo, n)
+    punteggio.append(tavolo.punteggio())
+    startL = tavolo.llen()
+    if non_migliora(punteggio) or len(tavolo.getNonValide()) == 0 or n > 14:
+        if tavolo_rispettato(tavolo_iniziale, tavolo) and tavolo.punteggio() > MAX:
+            MAX = tavolo.punteggio()
+            best = copy(tavolo)
+        return 
+    else:
+        for carte in tavolo.getAll():
             # carte = nonV[0] # TaggedCards
-            assert type(carte) is TaggedCards and carte.tag == 'NonValido'
+            assert type(carte) is TaggedCards# and carte.tag == 'NonValido'
             vicini = find_vicini(carte, tavolo) # lista di Card
             for v in vicini:
-                next_tavolo = gioca(copy(tavolo), carte, v)
-                alg(next_tavolo, tavolo_iniziale, soluzioni, n+1)
-        
+                next_tavolo = gioca(tavolo, carte, v)
+                assert startL == next_tavolo.llen()
+                # recur
+                alg(next_tavolo, tavolo_iniziale, soluzioni, n+1, copy(punteggio))
+
 def find_vicini(carte, tavolo):
+    def _find_vicini(carte, all):
+        # all = flatten(tavolo.getAll())
+        if carte.tipo == 'Singolo':
+            return [a for a in all if is_tris(carte.cards+[a]) or is_straight(carte.cards+[a])]
+        elif carte.tipo == 'Tris':
+            return [a for a in all if is_tris(carte.cards+[a])]
+        elif carte.tipo == 'Scala':
+            return [a for a in all if is_straight(carte.cards+[a])]
+        else:
+            assert False
+
     assert type(tavolo) is Tavolo and type(carte) is TaggedCards
-    all = flatten(tavolo.getAll())
-    if carte.tipo == 'Singolo':
-        return [a for a in all if is_tris(carte.cards+[a]) or is_straight(carte.cards+[a])]
-    elif carte.tipo == 'Tris':
-        return [a for a in all if is_tris(carte.cards+[a])]
-    elif carte.tipo == 'Scala':
-        return [a for a in all if is_straight(carte.cards+[a])]
-    else:
-        assert False
+    nonV = flatten(tavolo.getNonValide())
+    va = flatten(tavolo.getValide())
+    return _find_vicini(carte, nonV) + _find_vicini(carte, va)
     
 def no_double_seed(carte):
    seeds = set([c.seed for c in carte])
@@ -164,7 +240,7 @@ def is_straight(carte):
             else:
                 return False
 
-    if not no_double_value(carte) and is_only_one_seed(carte):
+    if not (no_double_value(carte) and is_only_one_seed(carte)):
         return False
     else:
         values = [v for s, v in sorted(carte, key=lambda x:x.value)]
@@ -205,6 +281,15 @@ assert set(res) == {Card('fiori', 1), Card('cuori', 1), Card('picche', 1)}
 # mano_test = [('quadri', 2),('quadri', 4)]
 tavolo_test = Tavolo([TaggedCards([Card('picche', 1), Card('fiori', 1), Card('cuori', 1)])])
 # assert set(find_vicini([('quadri', 1), ('quadri', 3)], [carte_test], mano_test)) == set([('fiori', 1), ('picche', 1), ('cuori', 1), ('quadri', 2), ('quadri', 4)])
+tavolo_test = Tavolo([
+    TaggedCards([Card(seed='cuori', value=1), Card(seed='fiori', value=1), Card(seed='picche', value=1), Card(seed='quadri', value=1)]),
+    TaggedCards([Card(seed='quadri', value=12), Card(seed='cuori', value=12), Card(seed='cuori', value=12), Card(seed='cuori', value=13)])])
+res = find_vicini(TaggedCards([Card(seed='quadri', value=13)]), tavolo_test)
+assert set(res) == {Card('quadri', 1), Card('quadri', 12), Card('cuori', 13)}
+
+assert TaggedCards([Card('picche', 2)]) < TaggedCards([Card('picche',2), Card('fiori', 2)])
+assert TaggedCards([Card('picche', 2)]) < TaggedCards([Card('picche',2), Card('fiori', 2)])
+assert TaggedCards([Card('picche', 2)]) > TaggedCards([Card('picche',2), Card('fiori', 2), Card('cuori', 2), Card('quadri', 2)])
 
 
 
@@ -236,5 +321,9 @@ if __name__ == '__main__':
         TaggedCards([
             Card("cuori", 12)])
     ])
-    alg(tavolo, tavolo, [], 0)
-
+        # TaggedCards([
+            # Card("quadri", 2)]) # rimuovi
+    # ])
+    alg(tavolo, tavolo, [], 0, [])
+    print('*************************************')
+    print(best)
