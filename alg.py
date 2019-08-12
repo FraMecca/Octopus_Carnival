@@ -16,7 +16,8 @@ def flattenBySeed(lst):
     return sorted([s for subl in lst for s in subl], key=lambda x: x.seed)
 
 def print_1(tavolo, n):
-    st = ('------------- '+str(n)+':'+str(tavolo.punteggio())+' -------------')
+    global MEM, MAX
+    st = ('------------- '+str(n)+':'+str(tavolo.punteggio())+':'+str(MAX)+' -------------'+'='+str(len(MEM)))
     print(st)
     for t in tavolo.cards:
         print(t)
@@ -45,7 +46,11 @@ class TaggedCards:
         self.tipo = 'Singolo' if len(carte) == 1 else 'Tris' if is_tris(carte) else 'Scala'
 
     def __hash__(self):
-                return hash(tuple(self))
+        import functools
+        def cmp(c1, c2):
+            return c1.value < c2.value if c1.seed == c2.seed else c1.seed < c2.seed
+        lst = tuple(sorted(self.cards, key=functools.cmp_to_key(cmp)))
+        return hash(lst)
 
     def __repr__(self):
         return "TaggedCards<%s, %s, %s>" % (self.cards, self.tag, self.tipo)
@@ -86,6 +91,9 @@ class Tavolo:
         assert type(cs) is list
         self.cards = cs
 
+    def __hash__(self):
+        return sum([c.__hash__() for c in self.cards])
+
     def __repr__(self):
         return "Tavolo<%s>" % (self.cards,)
 
@@ -102,8 +110,8 @@ class Tavolo:
         return f
 
     def getAll(self):
-        # return list(flattenByValue(self.cards))
         return self.cards
+
     def llen(self):
         return len(flatten(self.getAll()))
 
@@ -151,25 +159,23 @@ def alg(tavolo, tavolo_iniziale, soluzioni, n, punteggio):
     # qua si presume di avere gia` tutte le carte della mano stese sul tavolo come gruppo singolo
     # di carte non valide (alla prima iterazione)
     global MAX, DONE, best, MEM
-    if DONE or str(tavolo) in MEM:
-        print('TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT')
+    if DONE or tavolo.__hash__() in MEM:
         return
     else:
         DONE = len(tavolo.getNonValide()) == 0 # GLOBAL EXIT
-        MEM.add(str(tavolo))
-        print(len(MEM))
+        MEM.add(tavolo.__hash__())
 
     print_1(tavolo, n)
     punteggio.append(tavolo.punteggio())
     startL = tavolo.llen()
-    if non_migliora(punteggio) or len(tavolo.getNonValide()) == 0 or n > 14:
-        if tavolo_rispettato(tavolo_iniziale, tavolo) and tavolo.punteggio() > MAX:
-            MAX = tavolo.punteggio()
-            best = copy(tavolo)
-        return 
+    if tavolo_rispettato(tavolo_iniziale, tavolo) and tavolo.punteggio() > MAX:
+        MAX = tavolo.punteggio()
+        best = copy(tavolo)
+
+    if len(tavolo.getNonValide()) == 0 or n > 14 or non_migliora(punteggio):
+        return
     else:
         for carte in tavolo.getAll():
-            # carte = nonV[0] # TaggedCards
             assert type(carte) is TaggedCards# and carte.tag == 'NonValido'
             vicini = find_vicini(carte, tavolo) # lista di Card
             for v in vicini:
@@ -191,9 +197,7 @@ def find_vicini(carte, tavolo):
             assert False
 
     assert type(tavolo) is Tavolo and type(carte) is TaggedCards
-    nonV = flatten(tavolo.getNonValide())
-    va = flatten(tavolo.getValide())
-    return _find_vicini(carte, nonV) + _find_vicini(carte, va)
+    return _find_vicini(carte, flatten(tavolo.getAll()))
     
 def no_double_seed(carte):
    seeds = set([c.seed for c in carte])
@@ -294,36 +298,89 @@ assert TaggedCards([Card('picche', 2)]) > TaggedCards([Card('picche',2), Card('f
 
 
 if __name__ == '__main__':
-    # tavolo = [{("picche", 8), ("picche", 9), ("picche", 7)}, {("fiori", 9),("fiori", 8), ("fiori", 7)} ,{("cuori", 10), ("cuori", 9),("cuori",  8), ("cuori", 7)}]
-    # mano = {("cuori", 11),("cuori", 12), ("quadri", 7)}
+    # tavolo = Tavolo([
+    #     TaggedCards([
+    #         Card("picche", 2),
+    #         Card("fiori", 2),
+    #         Card("cuori", 2)]),
+    #     TaggedCards([
+    #         Card("cuori", 1),
+    #         Card("fiori", 1),
+    #         Card("picche", 1),
+    #         Card("quadri", 1)]),
+    #     # mano
+    #     TaggedCards([
+    #         Card("quadri", 13)]),
+    #     TaggedCards([
+    #         Card("quadri", 12)]),
+    #     TaggedCards([
+    #         Card("cuori", 13)]),
+    #     TaggedCards([
+    #         Card("cuori", 12)]),
+    #     TaggedCards([
+    #         Card("fiori", 3)]),
+    #     TaggedCards([
+    #         Card("picche", 3)]),
+    #     TaggedCards([
+    #         Card("cuori", 12)])
+    # ])
+    # tavolo = Tavolo([
+    #     TaggedCards([
+    #         Card("picche", 2),
+    #         Card("fiori", 2),
+    #         Card("quadri", 2),
+    #         Card("cuori", 2)]),
+    #     TaggedCards([
+    #         Card("cuori", 1),
+    #         Card("fiori", 1),
+    #         Card("picche", 1),
+    #         Card("quadri", 1)]),
+    #     # mano
+    #     TaggedCards([
+    #         Card("picche", 3)]),
+    # ])
+    # tavolo = Tavolo([
+    #     TaggedCards([
+    #         Card("fiori", 7),
+    #         Card("fiori", 8),
+    #         Card("fiori", 9)]),
+    #     TaggedCards([
+    #         Card("picche", 7),
+    #         Card("picche", 8),
+    #         Card("picche", 9)]),
+    #     TaggedCards([
+    #         Card("cuori", 7),
+    #         Card("cuori", 8),
+    #         Card("cuori", 9),
+    #         Card("cuori", 10)]),
+    #     # mano
+    #     TaggedCards([
+    #         Card("cuori", 11)]),
+    #     TaggedCards([
+    #         Card("cuori", 12)]),
+    #     TaggedCards([
+    #         Card("quadri", 7)])
+    # ])
     tavolo = Tavolo([
         TaggedCards([
-            Card("picche", 2),
-            Card("fiori", 2),
-            Card("cuori", 2)]),
+            Card("fiori", 7),
+            Card("fiori", 8),
+            Card("fiori", 9)]),
         TaggedCards([
-            Card("cuori", 1),
-            Card("fiori", 1),
-            Card("picche", 1),
-            Card("quadri", 1)]),
+            Card("picche", 7),
+            Card("picche", 8),
+            Card("picche", 9)]),
         TaggedCards([
-            Card("quadri", 13)]),
+            Card("cuori", 7),
+            Card("cuori", 8),
+            Card("cuori", 9),
+            Card("cuori", 10)]),
+        # mano
         TaggedCards([
-            Card("quadri", 12)]),
+            Card("cuori", 6)]),
         TaggedCards([
-            Card("cuori", 13)]),
-        TaggedCards([
-            Card("cuori", 12)]),
-        TaggedCards([
-            Card("fiori", 3)]),
-        TaggedCards([
-            Card("picche", 3)]),
-        TaggedCards([
-            Card("cuori", 12)])
+            Card("cuori", 8)])
     ])
-        # TaggedCards([
-            # Card("quadri", 2)]) # rimuovi
-    # ])
     alg(tavolo, tavolo, [], 0, [])
     print('*************************************')
-    print(best)
+    print_1(best, MAX)
