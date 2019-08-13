@@ -1,6 +1,8 @@
 from collections import namedtuple;
 from copy import deepcopy as copy # FUK
 
+DO_TESTS = False
+DO_PRINT = True
 MAX = -1000
 best = None
 DONE = False
@@ -16,6 +18,8 @@ def flattenBySeed(lst):
     return sorted([s for subl in lst for s in subl], key=lambda x: x.seed)
 
 def print_1(tavolo, n):
+    if not DO_PRINT:
+        return                  
     global MEM, MAX
     st = ('------------- '+str(n)+':'+str(tavolo.punteggio())+':'+str(MAX)+' -------------'+'='+str(len(MEM)))
     print(st)
@@ -30,10 +34,6 @@ class Mano:
     def __init__(self, carte):
         assert type(carte) is list and type(carte[0]) is Card
         self.cards = carte # lista di Carte
-    def cardsByValue(self):
-        return sorted(self.cards, key=lambda c: c.value)
-    def cardsBySeed(self):
-        return sorted(self.cards, key=lambda c: c.seed)
 
 class TaggedCards:
     cards = None
@@ -79,12 +79,6 @@ class TaggedCards:
         else:
             return False
 
-    def cardsByValue(self):
-        return sorted(self.cards, key=lambda c: c.value)
-    def cardsBySeed(self):
-        return sorted(self.cards, key=lambda c: c.seed)
-
-        
 class Tavolo:
     cards = list() # lista di taggedcards
     def __init__(self, cs):
@@ -100,13 +94,11 @@ class Tavolo:
     def getNonValide(self):
         assert type(self.cards[0]) is TaggedCards
         f = [c for c in self.cards if c.tag == 'NonValido']
-        # return list(flattenByValue(f))
         return f
 
     def getValide(self):
         assert type(self.cards[0]) is TaggedCards
         f = [c for c in self.cards if c.tag == 'Valido']
-        # return list(flattenByValue(f))
         return f
 
     def getAll(self):
@@ -129,11 +121,8 @@ def gioca(tavolo, giocata, da_muovere):
         if not rimpiazzata and da_muovere in t.cards:
             t = [c for c in t.cards if c != da_muovere]
             if t != []:
-                # tavolo.cards[i] = TaggedCards(t) 
                 news.append(TaggedCards(t))
             rimpiazzata = True
-            # tavolo.cards[idx] = TaggedCards(giocata.cards + [da_muovere])
-            # return tavolo
         else:
             news.append(t)
     return Tavolo(news)
@@ -181,12 +170,10 @@ def alg(tavolo, tavolo_iniziale, soluzioni, n, punteggio):
             for v in vicini:
                 next_tavolo = gioca(tavolo, carte, v)
                 assert startL == next_tavolo.llen()
-                # recur
                 alg(next_tavolo, tavolo_iniziale, soluzioni, n+1, copy(punteggio))
 
 def find_vicini(carte, tavolo):
     def _find_vicini(carte, all):
-        # all = flatten(tavolo.getAll())
         if carte.tipo == 'Singolo':
             return [a for a in all if is_tris(carte.cards+[a]) or is_straight(carte.cards+[a])]
         elif carte.tipo == 'Tris':
@@ -267,101 +254,101 @@ def is_valida(carte):
         else:
             return is_straight(carte)
 
-carte_test = [Card('quadri', 1), Card('picche', 1), Card('fiori', 1), Card('cuori', 1)]
-print(is_valida(carte_test))
+if DO_TESTS:
+    carte_test = [Card('quadri', 1), Card('picche', 1), Card('fiori', 1), Card('cuori', 1)]
+    print(is_valida(carte_test))
 
-carte_test = [Card('picche', 13), Card('picche', 12), Card('picche', 1)]
-print(is_valida(carte_test))
+    carte_test = [Card('picche', 13), Card('picche', 12), Card('picche', 1)]
+    print(is_valida(carte_test))
 
-carte_test = [Card('quadri', 1), Card('picche', 1)]
-print(is_tris(carte_test))
-carte_test = [Card('picche', 13), Card('picche', 1)]
-print(is_straight(carte_test))
+    carte_test = [Card('quadri', 1), Card('picche', 1)]
+    print(is_tris(carte_test))
+    carte_test = [Card('picche', 13), Card('picche', 1)]
+    print(is_straight(carte_test))
 
-# find_vicini test
-tavolo_test = Tavolo([TaggedCards([Card('picche', 1), Card('fiori', 1), Card('cuori', 1)])])
-res =  find_vicini(TaggedCards([Card('quadri', 1)]), tavolo_test)
-assert set(res) == {Card('fiori', 1), Card('cuori', 1), Card('picche', 1)}
-# mano_test = [('quadri', 2),('quadri', 4)]
-tavolo_test = Tavolo([TaggedCards([Card('picche', 1), Card('fiori', 1), Card('cuori', 1)])])
-# assert set(find_vicini([('quadri', 1), ('quadri', 3)], [carte_test], mano_test)) == set([('fiori', 1), ('picche', 1), ('cuori', 1), ('quadri', 2), ('quadri', 4)])
-tavolo_test = Tavolo([
-    TaggedCards([Card(seed='cuori', value=1), Card(seed='fiori', value=1), Card(seed='picche', value=1), Card(seed='quadri', value=1)]),
-    TaggedCards([Card(seed='quadri', value=12), Card(seed='cuori', value=12), Card(seed='cuori', value=12), Card(seed='cuori', value=13)])])
-res = find_vicini(TaggedCards([Card(seed='quadri', value=13)]), tavolo_test)
-assert set(res) == {Card('quadri', 1), Card('quadri', 12), Card('cuori', 13)}
+    # find_vicini test
+    tavolo_test = Tavolo([TaggedCards([Card('picche', 1), Card('fiori', 1), Card('cuori', 1)])])
+    res =  find_vicini(TaggedCards([Card('quadri', 1)]), tavolo_test)
+    assert set(res) == {Card('fiori', 1), Card('cuori', 1), Card('picche', 1)}
+    # mano_test = [('quadri', 2),('quadri', 4)]
+    tavolo_test = Tavolo([TaggedCards([Card('picche', 1), Card('fiori', 1), Card('cuori', 1)])])
+    # assert set(find_vicini([('quadri', 1), ('quadri', 3)], [carte_test], mano_test)) == set([('fiori', 1), ('picche', 1), ('cuori', 1), ('quadri', 2), ('quadri', 4)])
+    tavolo_test = Tavolo([
+        TaggedCards([Card(seed='cuori', value=1), Card(seed='fiori', value=1), Card(seed='picche', value=1), Card(seed='quadri', value=1)]),
+        TaggedCards([Card(seed='quadri', value=12), Card(seed='cuori', value=12), Card(seed='cuori', value=12), Card(seed='cuori', value=13)])])
+    res = find_vicini(TaggedCards([Card(seed='quadri', value=13)]), tavolo_test)
+    assert set(res) == {Card('quadri', 1), Card('quadri', 12), Card('cuori', 13)}
 
-assert TaggedCards([Card('picche', 2)]) < TaggedCards([Card('picche',2), Card('fiori', 2)])
-assert TaggedCards([Card('picche', 2)]) < TaggedCards([Card('picche',2), Card('fiori', 2)])
-assert TaggedCards([Card('picche', 2)]) > TaggedCards([Card('picche',2), Card('fiori', 2), Card('cuori', 2), Card('quadri', 2)])
+    assert TaggedCards([Card('picche', 2)]) < TaggedCards([Card('picche',2), Card('fiori', 2)])
+    assert TaggedCards([Card('picche', 2)]) > TaggedCards([Card('picche',2), Card('fiori', 2), Card('cuori', 2), Card('quadri', 2)])
 
 
 
 if __name__ == '__main__':
-    # tavolo = Tavolo([
-    #     TaggedCards([
-    #         Card("picche", 2),
-    #         Card("fiori", 2),
-    #         Card("cuori", 2)]),
-    #     TaggedCards([
-    #         Card("cuori", 1),
-    #         Card("fiori", 1),
-    #         Card("picche", 1),
-    #         Card("quadri", 1)]),
-    #     # mano
-    #     TaggedCards([
-    #         Card("quadri", 13)]),
-    #     TaggedCards([
-    #         Card("quadri", 12)]),
-    #     TaggedCards([
-    #         Card("cuori", 13)]),
-    #     TaggedCards([
-    #         Card("cuori", 12)]),
-    #     TaggedCards([
-    #         Card("fiori", 3)]),
-    #     TaggedCards([
-    #         Card("picche", 3)]),
-    #     TaggedCards([
-    #         Card("cuori", 12)])
-    # ])
-    # tavolo = Tavolo([
-    #     TaggedCards([
-    #         Card("picche", 2),
-    #         Card("fiori", 2),
-    #         Card("quadri", 2),
-    #         Card("cuori", 2)]),
-    #     TaggedCards([
-    #         Card("cuori", 1),
-    #         Card("fiori", 1),
-    #         Card("picche", 1),
-    #         Card("quadri", 1)]),
-    #     # mano
-    #     TaggedCards([
-    #         Card("picche", 3)]),
-    # ])
-    # tavolo = Tavolo([
-    #     TaggedCards([
-    #         Card("fiori", 7),
-    #         Card("fiori", 8),
-    #         Card("fiori", 9)]),
-    #     TaggedCards([
-    #         Card("picche", 7),
-    #         Card("picche", 8),
-    #         Card("picche", 9)]),
-    #     TaggedCards([
-    #         Card("cuori", 7),
-    #         Card("cuori", 8),
-    #         Card("cuori", 9),
-    #         Card("cuori", 10)]),
-    #     # mano
-    #     TaggedCards([
-    #         Card("cuori", 11)]),
-    #     TaggedCards([
-    #         Card("cuori", 12)]),
-    #     TaggedCards([
-    #         Card("quadri", 7)])
-    # ])
-    tavolo = Tavolo([
+    tavolo1 = Tavolo([
+        TaggedCards([
+            Card("picche", 2),
+            Card("fiori", 2),
+            Card("cuori", 2)]),
+        TaggedCards([
+            Card("cuori", 1),
+            Card("fiori", 1),
+            Card("picche", 1),
+            Card("quadri", 1)]),
+        # mano
+        TaggedCards([
+            Card("quadri", 13)]),
+        TaggedCards([
+            Card("quadri", 12)]),
+        TaggedCards([
+            Card("cuori", 13)]),
+        TaggedCards([
+            Card("cuori", 12)]),
+        TaggedCards([
+            Card("fiori", 3)]),
+        TaggedCards([
+            Card("picche", 3)]),
+        TaggedCards([
+            Card("cuori", 12)])
+    ])
+    tavolo2 = Tavolo([
+        TaggedCards([
+            Card("picche", 2),
+            Card("fiori", 2),
+            Card("quadri", 2),
+            Card("cuori", 2)]),
+        TaggedCards([
+            Card("cuori", 1),
+            Card("fiori", 1),
+            Card("picche", 1),
+            Card("quadri", 1)]),
+        # mano
+        TaggedCards([
+            Card("picche", 3)]),
+    ])
+    tavolo3 = Tavolo([
+        TaggedCards([
+            Card("fiori", 7),
+            Card("fiori", 8),
+            Card("fiori", 9)]),
+        TaggedCards([
+            Card("picche", 7),
+            Card("picche", 8),
+            Card("picche", 9)]),
+        TaggedCards([
+            Card("cuori", 7),
+            Card("cuori", 8),
+            Card("cuori", 9),
+            Card("cuori", 10)]),
+        # mano
+        TaggedCards([
+            Card("cuori", 11)]),
+        TaggedCards([
+            Card("cuori", 12)]),
+        TaggedCards([
+            Card("quadri", 7)])
+    ])
+    tavolo4 = Tavolo([
         TaggedCards([
             Card("fiori", 7),
             Card("fiori", 8),
@@ -381,6 +368,17 @@ if __name__ == '__main__':
         TaggedCards([
             Card("cuori", 8)])
     ])
+    tavolo5 = Tavolo([
+        # mano
+        TaggedCards([
+            Card("cuori", 7)]),
+        TaggedCards([
+            Card("cuori", 6)]),
+        TaggedCards([
+            Card("cuori", 8)])
+    ])
+
+    tavolo = tavolo5
     alg(tavolo, tavolo, [], 0, [])
-    print('*************************************')
+    print('****BEST:')
     print_1(best, MAX)

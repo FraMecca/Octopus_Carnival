@@ -33,7 +33,7 @@ let make cards =
 let contains needle haystack = List.mem needle haystack.cards
 
 let (=) a b =
-  if List.length a.cards != List.length b.cards || a.tag != b.tag || a.strategy != b.strategy then
+  if List.length a.cards <> List.length b.cards || a.tag != b.tag || a.strategy != b.strategy then
     false
   else
     a.cards = b.cards
@@ -58,3 +58,14 @@ let hash ts =
   ts.cards |>
   List.sort (fun a b -> if a.seed == b.seed then Cards.value_cmp a b else Cards.seed_cmp a b) |>
   Hashtbl.hash;;
+
+let remove card tcards =
+  assert (List.mem card tcards.cards);
+  match (List.filter (fun x -> x <> card) tcards.cards) with
+  | [] -> None 
+  | (hd::tl) as lst -> Some (make lst) ;;
+
+let r = remove (Cards.make Hearts 7) (make [Cards.make Hearts 7; Cards.make Clovers 7; Cards.make Pikes 7;]) in
+match r with
+| None -> assert false
+| Some x -> if x <> (make [Cards.make Clovers 7; Cards.make Pikes 7]) then assert false

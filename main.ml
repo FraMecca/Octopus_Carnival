@@ -5,8 +5,10 @@ open Cards;;
 open Tcards;;
 open Table;;
 
-let card_to_string c = String.concat ["{ seed: "; card_type_to_string c.seed;
-                                      "; value: "; string_of_int c.value; " }"]
+(* let card_to_string c = String.concat ["{ seed: "; card_type_to_string c.seed;
+ *                                       "; value: "; string_of_int c.value; " }"] *)
+
+let card_to_string c = String.concat ["{"; card_type_to_string c.seed;":"; string_of_int c.value; "}"]
 let print_card chan card = Out_channel.output_string chan (card_to_string card);;
 
 let tcards_to_string c = "TCards: <"::
@@ -17,42 +19,15 @@ let tcards_to_string c = "TCards: <"::
                                   "]"::[] |> String.concat
 let print_tcards chan tcards = Out_channel.output_string chan (tcards_to_string tcards);;
 
-let table_to_string c = "Table: <"::
-                        (List.map ~f:(fun c -> tcards_to_string c) c.cards |> String.concat)::
+let table_to_string c = ""::
+                        (List.map ~f:(fun c -> tcards_to_string c) c.cards |> String.concat ~sep:";\n")::
                          ">"::[] |> String.concat ;;
 let print_table chan table = Out_channel.output_string chan (table_to_string table);;
 
 
-let t = play (make [
-      Tcards.make [
-        Cards.make Pikes 2;
-        Cards.make Tiles 2;
-        Cards.make Hearts 2;
-      ];
-      Tcards.make [
-        Cards.make Hearts 2;
-      ]
-    ]) (* table_cards *)
-    (Tcards.make [
-        Cards.make Pikes 2;
-        Cards.make Tiles 2;
-        Cards.make Hearts 2;
-      ]) (* in_play *)
-    (Cards.make Hearts 2) (* to_move *)
-(* in  make [
- *     Tcards.make [
- *       Cards.make Pikes 2;
- *       Cards.make Tiles 2;
- *       Cards.make Hearts 2;
- *       Cards.make Hearts 2;
- *     ]
- *   ] ;; *)
-    in
-    Printf.printf "%a\n" t
-
 let deck = Cards.init
 let card, _ = draw deck;;
-Printf.printf "%a\n" print_card card
+(* Printf.printf "%a\n" print_card card *)
 
 (* Mosse: Aggiunta, spostamento *)
 (* 
@@ -62,4 +37,37 @@ Printf.printf "%a\n" print_card card
 *)
 
 (* TESTS TODO: *)
+let printer table = 
+  Printf.printf "********\n%a\n********\n" print_table table;;
 
+
+(* let rec alg table original_table n (scores:int list) best max_score (dbg: table -> unit) = *)
+open Hashtbl;;
+let table = Table.make [
+  Tcards.make [
+    Cards.make Hearts 7;
+    Cards.make Hearts 8;
+    Cards.make Hearts 9;
+  ];
+  Tcards.make [
+    Cards.make Pikes 7;
+    Cards.make Pikes 8;
+    Cards.make Pikes 9;
+  ];
+  Tcards.make [
+    Cards.make Hearts 7;
+    Cards.make Hearts 8;
+    Cards.make Hearts 9;
+    Cards.make Hearts 10;
+  ];
+  Tcards.make [
+    Cards.make Hearts 6;
+  ];
+  Tcards.make [
+    Cards.make Hearts 8;
+  ]
+] in
+let new_tables = Table.alg table 0 [] in
+(* List.iter ~f:(fun (t,_,_) -> printer t) new_table *)
+
+Table.prova table [] [] (-1000)  printer new_tables []
