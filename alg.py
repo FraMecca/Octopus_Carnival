@@ -1,7 +1,7 @@
 from copy import deepcopy as copy # FUK
 from cardtypes import *
 
-DO_TESTS = True
+DO_TESTS = False
 DO_PRINT = True
 MAX = -1000
 best = None
@@ -127,8 +127,8 @@ if __name__ == '__main__':
             Card("fiori", 3)]),
         TaggedCards([
             Card("picche", 3)]),
-        TaggedCards([
-            Card("cuori", 12)])
+        # TaggedCards([
+            # Card("cuori", 12)])
     ])
     tavolo2 = Tavolo([
         TaggedCards([
@@ -198,6 +198,6 @@ if __name__ == '__main__':
     ])
 
     tavolo = tavolo1
-    # alg(tavolo, tavolo, [], 0, [])
+    alg(tavolo, tavolo, [], 0, [])
     # print('****BEST:')
     # print_1(best, MAX)
