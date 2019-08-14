@@ -28,31 +28,37 @@ type tcards = { cards: card list ; tag: card_tag ; strategy: game_strategy }
 let make cards =
   let strategy = if List.length cards = 1 then Single else
     if Cards.is_tris cards then Tris else Straight in
-  { cards=cards ; tag=if Cards.is_valid cards then Valid else Invalid; strategy=strategy }
+  { cards=cards |> List.sort value_cmp ; tag=if Cards.is_valid cards then Valid else Invalid; strategy=strategy }
 
 let contains needle haystack = List.mem needle haystack.cards
 
-let (=) a b =
+let eq a b =
   if List.length a.cards <> List.length b.cards || a.tag != b.tag || a.strategy != b.strategy then
     false
   else
     a.cards = b.cards
 
 let length ts = List.length ts.cards
-let cmp a b =
-  (* TODO: improve *)
-  if a.strategy == Tris && List.length a.cards == 4 then -1
-  else if b.strategy == Tris && List.length b.cards == 4 then 1
-  else if a.strategy != Single && b.strategy == Single then 1
-  else if a.strategy == Single && b.strategy != Single then -1
-  else if a.tag == Invalid && b.tag == Valid then 1
-  else -1 ;;
 
-(* TODO tests *)
-assert (make [Cards.make Pikes 2] |>
-        cmp (make [Cards.make Pikes 2 ; Cards.make Clovers 2]) == 1);; (* less than *)
-assert (make [Cards.make Pikes 2] |>
-cmp (make [Cards.make Pikes 2 ; Cards.make Clovers 2 ; Cards.make Tiles 2; Cards.make Hearts 2]) == -1)
+let cmp (a:tcards) (b:tcards) =
+  let tup = (a.strategy, length a, b.strategy, length b, a.tag, b.tag) in
+  match tup with
+  | Straight, al, Straight, bl, _, _ -> if al < bl then 1 else -1
+  | Tris, 4, _, _, _, _ -> -1
+  | _,  _, Tris, 4, _, _ -> 1
+  | Tris, 3, _, _, _, _ -> -1
+  | _,  _, Tris, 3, _, _ -> 1
+  | Straight, 3, _, _, _, _ -> -1
+  | _,  _, Straight, 3, _, _ -> 1
+  | Straight, al, _, _, _, _ when al > 3 -> -1
+  | _, _, Straight, bl, _, _ when bl > 3 -> 1
+  | Single, _, Single, _, _, _ -> -1 (* avoid ordering by card value here *)
+  | (Straight|Tris), _, Single, _, _, _ -> 1
+  | Single, _, (Straight|Tris), _, _, _ -> -1
+  | _, _, _, _, Invalid, Valid -> 1
+  | _, _, _, _, Valid, Invalid -> -1
+  | _ -> -1 (* doesn't matter if -1 or 1, just don't discriminate otherwise can't try all possible combinations *);;
+
 
 let hash ts =
   ts.cards |>

@@ -73,11 +73,15 @@ let is_straight _cards =
   if (not (no_double_value _cards && is_only_one_seed _cards)) then
     false
   else
-    let last = List.rev _cards |> hd in
-    let cards  = List.map (fun c -> c.value) _cards  (* use only values *) in
+    let ocards = List.sort value_cmp _cards  in
+    let last = List.rev ocards |> hd in
+    let cards  = List.map (fun c -> c.value) ocards (* use only values *) in
     if last.value = 13 && (hd cards) = 1 then (* circolare *)
       let fst, snd = split cards [] in (_is_straight fst) && (_is_straight snd)
     else
+      (* let res = _is_straight cards in
+       * List.iter (fun c -> Printf.printf "%d:%s - " c.value (card_type_to_string c.seed)) _cards ; Printf.printf "%b\n" res;
+       * res *) (* TODO : remove *)
       _is_straight cards
 
 let is_valid _cards =
