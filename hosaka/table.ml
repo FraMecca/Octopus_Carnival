@@ -1,5 +1,5 @@
-open List;;
-open Hashtbl;;
+(* open List;;
+ * open Hashtbl;; *)
 
 open Cards;;
 open Tcards;;
@@ -15,25 +15,25 @@ let empty =
   { cards = [] }
 
 let valids table =
-  List.filter (fun ts -> ts.tag == Valid) table.cards;;
+  List.filter (fun ts -> ts.tag = Valid) table.cards
 
 let invalids table =
-  List.filter (fun ts -> ts.tag == Invalid) table.cards;;
+  List.filter (fun ts -> ts.tag = Invalid) table.cards
 
 let score table =
   List.length (valids table) - List.length (invalids table)
 
 let hash table =
   List.map (fun ts ->Tcards.hash ts) table.cards |>
-  List.fold_left sum 0;;
+  List.fold_left sum 0
 
 let size table =
   List.map (fun tl -> Tcards.length tl) table.cards |>
-  List.fold_left sum 0 ;;
+  List.fold_left sum 0
 
 let flatten table : card list=
   List.map (fun (ts:tcards) -> ts.cards) table.cards |>
-  List.concat |> List.sort Cards.value_cmp ;; 
+  List.concat |> List.sort Cards.value_cmp
 
 let contains tc table =
   List.mem tc table.cards
@@ -55,9 +55,9 @@ let neighbors (tcs:tcards) table : card list=
    res )
 
 let constraints start eend =
-  let hand = List.filter (fun ts -> ts.strategy == Single) start.cards in
-  let res = List.filter (fun (e:tcards) -> e.strategy == Single && not (List.mem e hand)) eend.cards in
-  (List.length res) == 0;; (* investigate why not = nstead of == (TODO) *)
+  let hand = List.filter (fun ts -> ts.strategy = Single) start.cards in
+  let res = List.filter (fun (e:tcards) -> e.strategy = Single && not (List.mem e hand)) eend.cards in
+  (List.length res) = 0
 
 let doesnt_improve n scores =
   if List.length scores < n then
@@ -84,11 +84,9 @@ let play table in_play to_move : table =
   in
   assert (table |> contains in_play) ;
   _play table.cards in_play to_move [] false false |> make
-  ;;
 
 let is_best_outcome table =
-  (invalids table |> List.length) == 0
-
+  (invalids table |> List.length) = 0
 
 let alg ?maxiter original (dbg: int -> int -> table -> unit) =
   let set = Hashtbl.create 1024 in
@@ -97,23 +95,26 @@ let alg ?maxiter original (dbg: int -> int -> table -> unit) =
   let max_score = ref (score !best) in
 
   let rec _alg table n scores maxiter =
-    if !should_exit || Hashtbl.mem set (hash table) then
+    let cur_score = score table in
+    let uscores = scores[@cur_score] in
+    let cur_hash = hash table in
+    if !should_exit || Hashtbl.mem set cur_hash then
       ()
     else (
       should_exit := is_best_outcome table;
-      Hashtbl.add set (hash table) ();
-      dbg n (score table) table ;
-      if constraints original table && (score table) > !max_score then
-        (max_score := (score table) ; best := table ) ;
+      Hashtbl.add set cur_hash ();
+      dbg n cur_score table ;
+      if constraints original table && cur_score > !max_score then
+        (max_score := cur_score ; best := table ) ;
 
-      if !should_exit || n > maxiter || doesnt_improve (maxiter/2) (scores@[score table]) then
+      if !should_exit || n > maxiter || doesnt_improve (maxiter/2) uscores then
         ()
       else (
         table.cards |>
-        List.map (fun tcs -> neighbors tcs table |> List.map (fun v -> (tcs,v))) |> (* lista di carta:vicini *)
+        List.map (fun tcs -> neighbors tcs table |> List.map (fun v -> (tcs,v))) |> (* list of cards:neighbors *)
         List.concat |> (* flatten *)
         List.map (fun (card, neigh) -> (play table card neigh)) |>
-        List.iter (fun new_table -> _alg new_table (n+1) (scores@[score table]) maxiter)
+        List.iter (fun new_table -> _alg new_table (n+1) uscores maxiter)
       )
     )
   in

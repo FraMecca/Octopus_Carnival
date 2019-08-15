@@ -1,7 +1,6 @@
 open List;;
-open String;;
 
-Random.self_init ();;
+(* Random.self_init ();;  *)
 
 type card_type =
   | Hearts 
@@ -92,42 +91,3 @@ let is_valid _cards =
     match cards with
     | a::b::_ when value_cmp a b = 0  -> is_tris cards
     | _ -> is_straight cards;;
-
-
-
-(* TEST TODO *)
-let cards = [{seed=Clovers; value=1}; {seed=Hearts; value=1}; {seed=Pikes; value=1}] in
-assert (is_valid cards);;
-
-let cards = [{seed=Tiles; value=1}; {seed=Clovers; value=1}; {seed=Hearts; value=1}; {seed=Pikes; value=1}] in
-assert (is_valid cards);;
-
-let cards = [{seed=Tiles; value=2}; {seed=Clovers; value=1}; {seed=Hearts; value=1}; {seed=Pikes; value=1}] in
-assert (not (is_valid cards));;
-
-let cards = [{seed=Hearts; value=2}; {seed=Hearts; value=2}; {seed=Hearts; value=4}]
-in assert (not (no_double_value cards));;
-
-let cards = [{seed=Hearts; value=2}; {seed=Hearts; value=2}; {seed=Hearts; value=4}]
-in assert (not (no_double_seed cards));;
-
-let cards = [{seed=Pikes; value=2}; {seed=Clovers; value=2}; {seed=Tiles; value=4}; {seed=Hearts; value=4}]
-in assert (no_double_seed cards);;
-
-let cards = [{seed=Hearts; value=4}; {seed=Hearts; value=3}; {seed=Hearts; value=2}; {seed=Hearts; value=1}]
-in assert (is_valid cards);;
-
-let cards = [{seed=Hearts; value=13}; {seed=Hearts; value=12}; {seed=Hearts; value=2}; {seed=Hearts; value=1}]
-in assert (is_valid cards);;
-
-let cards = [{seed=Pikes; value=13}; {seed=Hearts; value=12}; {seed=Hearts; value=2}; {seed=Hearts; value=1}]
-in assert (not (is_valid cards));;
-
-let cards = [{seed=Pikes; value=13}; {seed=Pikes; value=12}; {seed=Pikes; value=1}]
-in assert (is_valid cards);;
-let cards = [{seed=Hearts; value=12}; {seed=Pikes; value=12}; {seed=Pikes; value=1}]
-in assert (not (is_valid cards));;
-
-let cards = [{seed=Hearts; value=13}; {seed=Hearts; value=3}; {seed=Hearts; value=2}; {seed=Hearts; value=1}]
-in assert (is_valid cards);;
-

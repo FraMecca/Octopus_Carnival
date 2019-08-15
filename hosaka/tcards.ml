@@ -1,6 +1,3 @@
-open List;;
-open Hashtbl;;
-
 open Cards;;
 
 type card_tag =
@@ -62,14 +59,14 @@ let cmp (a:tcards) (b:tcards) =
 
 let hash ts =
   ts.cards |>
-  List.sort (fun a b -> if a.seed == b.seed then Cards.value_cmp a b else Cards.seed_cmp a b) |>
+  List.sort (fun a b -> if a.seed = b.seed then Cards.value_cmp a b else Cards.seed_cmp a b) |>
   Hashtbl.hash;;
 
 let remove card tcards =
   assert (List.mem card tcards.cards);
   match (List.filter (fun x -> x <> card) tcards.cards) with
   | [] -> None 
-  | (hd::tl) as lst -> Some (make lst) ;;
+  | (_::_) as lst -> Some (make lst) ;;
 
 let r = remove (Cards.make Hearts 7) (make [Cards.make Hearts 7; Cards.make Clovers 7; Cards.make Pikes 7;]) in
 match r with
