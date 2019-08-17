@@ -287,9 +287,9 @@ let () =
     assert (alg table1x void_printer |> snd = 2);
     assert (alg ~maxiter:21 table1x void_printer |> snd = 3);
     assert (alg ~maxiter:14 table1x void_printer |> snd = 2);
-    (* let table = table1x in
-     * let res = alg ~maxiter:14 table printer in
-     * Printf.printf "Best result: %d\n%a\n" (res |> snd) print_table (res |> fst) ; *)
+    let table = table1x in
+    let res = alg ~maxiter:14 table printer in
+    Printf.printf "Best result: %d\n%a\n" (res |> snd) print_table (res |> fst) ;
     Printf.printf "Tests done.\n" in
  () ;;
 

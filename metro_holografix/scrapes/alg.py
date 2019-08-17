@@ -1,5 +1,6 @@
 from copy import deepcopy as copy # FUK
-from cardtypes import *
+# from cardtypes import *
+from metro_holografix.cardtypes import *
 
 DO_TESTS = False
 DO_PRINT = True
@@ -20,6 +21,7 @@ def print_1(tavolo, n):
 
 def gioca(tavolo, giocata, da_muovere):
     assert type(da_muovere) is Card
+    assert type(giocata) is TaggedCards
     idx = tavolo.cards.index(giocata)
     news = [TaggedCards(giocata.cards + [da_muovere])]
     rimpiazzata = False

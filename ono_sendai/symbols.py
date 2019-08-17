@@ -83,4 +83,4 @@ big = {
     'hat': ' ___ '
     }
 
-n = '\n'
+sym = {'clovers': clovers, 'pikes': pikes, 'hearts': hearts, 'tiles': tiles}
