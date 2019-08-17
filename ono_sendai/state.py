@@ -36,15 +36,45 @@ table = Table([
         Card("Tiles", 1)]),
 ])
 
+
+class Hand:
+    def __init__(self, cards):
+        self.cards = cards
+
+    def widget_repr(self):
+        yi = [sym.big['hat']]
+        seed = self.cards[0][0].lower()
+        yi.append(sym.big[seed])
+        yi.append(sym.big[self.cards[0][1]])
+        for card in self.cards[1:]:
+            seed = card[0].lower()
+            yi.append(sym.sym[seed][card[1]])
+        return yi
+
+hand = Hand([
+    Card("Pikes", 12),
+    Card("Clovers", 12),
+    Card("Tiles", 12),
+    Card("Hearts", 12),
+    Card("Hearts", 13),
+    Card("Clovers", 13),
+    Card("Pikes", 13),
+    Card("Tiles", 13)
+])
+
 # TODO: refactor language
-def gioca(tavolo, src, dst):
+def gioca(tavolo, hand, src, dst):
     giocata = [] if dst == 'Empty' else tavolo.cards[dst]
-    da_muovere = tavolo.cards[src[0]].cards[src[1]]
-    assert type(dst) is int or dst == 'Empty' or dst == 'Hand'
+    da_muovere = hand.cards[src[1]] if src[0] == 'Hand' else tavolo.cards[src[0]].cards[src[1]]
+    hcards = hand.cards[:src[1]] + hand.cards[src[1]+1:] if src[0] == 'Hand' else hand.cards
+
+    assert type(dst) is int or dst == 'Empty'
+    assert type(src[0]) is int or src[0] == 'Hand'
     assert type(da_muovere) is Card
     assert type(giocata) is TaggedCards or giocata == []
+
     idx = -1 if dst == 'Empty' else tavolo.cards.index(giocata) 
-    news = [TaggedCards([da_muovere])] if giocata == [] else []
+    news = [TaggedCards([da_muovere])] if type(giocata) is list else []
     rimpiazzata = False
     for i, t in enumerate(tavolo.cards):
         if i == idx:
@@ -57,7 +87,7 @@ def gioca(tavolo, src, dst):
             rimpiazzata = True
         else:
             news.append(t)
-    return Table(news)
+    return Table(news), Hand(hcards)
 
-def update_table(table, src, dst):
-    return gioca(table, src, dst)
+def update_table(table, hand, src, dst):
+    return gioca(table, hand, src, dst)

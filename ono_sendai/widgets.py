@@ -3,6 +3,7 @@ from picotui.defs import *
 from colorama import Style, Fore
 
 red  = f'{Fore.RED}'.encode('utf-8')
+blue  = f'{Fore.BLUE}'.encode('utf-8')
 green  = f'{Fore.GREEN}'.encode('utf-8')
 white  = f'{Fore.WHITE}'.encode('utf-8')
 

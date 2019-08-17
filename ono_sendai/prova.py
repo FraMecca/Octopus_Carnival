@@ -59,20 +59,25 @@ class FrameFactory:
     def newHandFrame(self, cards):
         assert type(cards) is list, type(cards)
         h = 27 # height ?
-        self.d.add(1, 1, WColoredFrame(12, h, 'HAND', red))
-        w = WCardRadioButton([f'{Fore.RED}'+cards[0]] + cards[1:-1] + [cards[-1]+f'{Style.RESET_ALL}'], isHand=True)
+        self.d.add(1, 1, WColoredFrame(12, h, 'HAND', blue))
+        w = WCardRadioButton([f'{Fore.BLUE}'+cards[0]] + cards[1:-1] + [cards[-1]+f'{Style.RESET_ALL}'], isHand=True)
         self.d.add(2, 2, w)
         self.hand = w
 
     def getChoices(self):
-        src = -1; dst = -1
+        src = (None, None); dst = None
+
         if self.widgets[0].choice == 0:
             dst = 'Empty'
+        if self.hand.choice > 1:
+            src = 'Hand', self.hand.choice-2
+
         for i, w in enumerate(self.widgets[1:]):
             if w.choice == 0:
                 assert dst != 'Empty'
                 dst = i
             elif w.choice > 1:
+                assert src[0] != 'Hand'
                 src = i, w.choice-2
         return src, dst
                 
@@ -82,6 +87,7 @@ c = ['asd', 'asd']
 
 import state
 table = state.table
+hand = state.hand
 
 exit = False
 while not exit:
@@ -118,7 +124,7 @@ while not exit:
         f.emptyFrame()
         for cards in table.widget_repr():
             f.newFrame(cards)
-        # f.newHandFrame()
+        f.newHandFrame(hand.widget_repr())
 
         tableDialog.redraw()
         res = tableDialog.loop()
@@ -127,7 +133,7 @@ while not exit:
         else:
             print(*f.getChoices())
             sleep(2)
-            table = state.update_table(table, *f.getChoices())
+            table, hand = state.update_table(table, hand, *f.getChoices())
 
 
-print('TODO: massimo due scelte')
+print('TODO: sempre due scelte')
