@@ -1,15 +1,18 @@
 import sys
 sys.path.append('../')
 import json
+from copy import deepcopy as copy
+from functools import cmp_to_key
+
+from IPython import embed as fuck
 
 from metro_holografix.cardtypes import *
 import symbols as sym
 
-Hand = Tavolo
 class Table(Tavolo):
 
     def is_valid(self):
-        return len(self.getNonValide()) == 0
+        return len(self.singles()) == 0 and len(self.getNonValide()) == 0
 
     def widget_repr(self):
         for ts in self.cards:
@@ -25,7 +28,9 @@ class Table(Tavolo):
 
 class Hand:
     def __init__(self, cards):
-        self.cards = cards
+        def sortc(a, b):
+            return -1 if (a[1],a[0]) < (b[1],b[0]) else 1
+        self.cards = list(sorted(cards, key=cmp_to_key(sortc)))
 
     def widget_repr(self):
         yi = [sym.big['hat']]
@@ -36,31 +41,70 @@ class Hand:
             seed = card[0].lower()
             yi.append(sym.sym[seed][card[1]])
         return yi
-             
 
-events = [ # list of tuples table-hand
-    (Table([
-        TaggedCards([
-            Card("Pikes", 2),
-            Card("Clovers", 2),
-            Card("Tiles", 2),
-            Card("Hearts", 2)]),
-        TaggedCards([
-            Card("Hearts", 1),
-            Card("Clovers", 1),
-            Card("Pikes", 1),
-            Card("Tiles", 1)]),
-    ]), Hand([
-        Card("Pikes", 12),
-        Card("Clovers", 12),
-        Card("Tiles", 12),
-        Card("Hearts", 12),
-        Card("Hearts", 13),
-        Card("Clovers", 13),
-        Card("Pikes", 13),
-        Card("Tiles", 13)
-    ]))
-]
+def make_deck():
+    from random import shuffle # TODO: mersenne
+    def make_set(seed):
+        for i in range(1, 14):
+            yield Card(seed, i)
+    odeck = [m for seed in ['Pikes', 'Hearts', 'Clovers', 'Tiles']  for m in make_set(seed)]
+    shuffle(odeck)
+    return odeck
+
+class WrongMoveException(Exception):
+    pass
+
+class State:
+    def __init__(self, ids):
+        self.deck = make_deck()
+        self.players = dict()
+        self.table = Table([])
+        self.round = None
+        self.ids = ids
+        self.cur_player = ids[0]
+        for i in ids:
+            cards = [self.deck.pop() for i in range(11)]
+            self.players[i] = Hand(cards)
+
+    def draw(self):
+        hand = self.players[self.cur_player] 
+        nhand = Hand(hand.cards + [self.deck.pop()])
+        self.players[self.cur_player] = nhand
+        self.round = None
+
+    def next_turn(self):
+        assert self.round is None
+        next_player = self.ids[(self.ids.index(self.cur_player) + 1) % len(self.ids)]
+        self.cur_player = next_player
+        self.round = [(copy(self.table), copy(self.players[self.cur_player]))]
+
+    def done(self):
+        assert self.round is not None
+        original = self.table
+        table, hand = self.last()
+        if not table.is_valid() or len(set(original.cards) - set(table.cards)) != 0:
+            raise WrongMoveException()
+        else:
+            self.table, self.players[self.cur_player] = table, hand
+            self.round = None
+        
+    def last(self):
+        return self.round[-1]
+
+    def backtrack(self):
+        if len(self.round) >= 2:
+            return self.round.pop()
+        else:
+            return self.round[0]
+
+    def size(self):
+        return len(self.round)
+
+    def advance(self, src, dst):
+        table, hand = self.last()
+        t, h = gioca(table, hand, src, dst)
+        self.round.append((t, h))
+        return t, h
 
 def fromJson(j):
     hcards = [Card(seed, value) for seed, value in j['hand']]
@@ -77,17 +121,6 @@ def toJson(table, hand):
         j['table'].append(tc.cards)
     return json.dumps(j)
 
-def next():
-    return events[-1]
-
-def prev():
-    if len(events) >= 2:
-        return events.pop()
-    else:
-        return events[0]
-
-def size():
-    return len(events)
 
 # TODO: refactor language
 def gioca(tavolo, hand, src, dst):
@@ -116,7 +149,3 @@ def gioca(tavolo, hand, src, dst):
             news.append(t)
     return Table(news), Hand(hcards)
 
-def update_table(table, hand, src, dst):
-    t, h = gioca(table, hand, src, dst)
-    events.append((t, h))
-    return t, h

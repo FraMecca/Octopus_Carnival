@@ -2,12 +2,16 @@ from picotui.context import Context
 from picotui.screen import Screen
 
 from time import sleep
+import os
 
 from widgets import *
 import state
 
 action = ''
 exit = False
+ID = "tui"
+
+game = state.State([ID, "bot1"])
 
 class FrameFactory:
     titles = ['0x10', '0x11', '0x12', '0x13', '0x14', '0x15', '0x16', '0x17',
@@ -85,7 +89,7 @@ class FrameFactory:
     def newHandFrame(self, cards):
         assert type(cards) is list, type(cards)
         h = 27 # height ?
-        self.d.add(1, 1, WColoredFrame(12, h, 'HAND', blue)) 
+        self.d.add(1, 1, WColoredFrame(12, h, 'HAND: '+str(len(cards)), blue)) 
         coloredCards = [f'{Fore.BLUE}'+cards[0]] + cards[1:-1] + [cards[-1]+f'{Style.RESET_ALL}']
         w = WCardRadioButton(coloredCards, -1, self.constrainAllWidgets, isHand=True)
         self.d.add(2, 2, w)
@@ -151,9 +155,36 @@ def makeButtons(d):
         global action ; action = "BACK"
     buttonback.on_click = doBack
 
+def wrong_play():
+    from sys import stdout
+    os.system('clear')
+    print(f'{Fore.RED}'+'Wrong play. Retry...'+f'{Style.RESET_ALL}')
+    sleep(2)
 
+def make_auto_move():
+    import sys
+    from animation.octopus import animate
+    pid = os.fork()
+    if pid == 0:
+        # child
+        os.system('sleep 1')
+        os.system('echo DRAW')
+        sys.exit()
+    else:
+        p = os.waitpid(pid, os.WNOHANG)
+        while p == (0, 0):
+            animate(10)
+            p = os.waitpid(pid, os.WNOHANG)
+        game.draw()
+        game.next_turn()
+    
+
+game.next_turn()
 while not exit:
-    table, hand = state.next()
+    while game.cur_player != ID:
+        make_auto_move()
+        
+    table, hand = game.last()
     with Context():
 
         Screen.attr_color(C_WHITE, C_GREEN)
@@ -179,15 +210,20 @@ while not exit:
                 exit = True
             elif action == 'MOVE':
                 # TODO: transition effect
-                state.update_table(table, hand, *f.getChoices()) # get them from next
+                game.advance(*f.getChoices()) # get them from next
             elif action == 'DRAW':
-                pass
+                game.draw()
+                game.next_turn()
             elif action == 'RESET':
-                while state.size() > 1:
-                    state.prev()
+                while game.size() > 1:
+                    game.backtrack()
             elif action == 'SEND':
-                pass
+                try:
+                    game.done()
+                    game.next_turn()
+                except state.WrongMoveException as e:
+                    wrong_play()
             elif action == 'BACK':
-                state.prev()
+                game.backtrack()
             else:
                 assert False

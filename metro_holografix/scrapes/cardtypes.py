@@ -32,7 +32,7 @@ class TaggedCards:
         return self.cards.__iter__()
 
     def __eq__(self, other):
-        assert type(other) is type(self), type(other)
+        assert type(other) is type(self)
         if len(other.cards) != len(self.cards) or self.tag != other.tag or self.tipo != other.tipo:
             return False
         else:
@@ -53,6 +53,7 @@ class TaggedCards:
             return False
 
 class Tavolo:
+    cards = list() # lista di taggedcards
     def __init__(self, cs):
         assert type(cs) is list
         self.cards = cs
@@ -81,9 +82,6 @@ class Tavolo:
 
     def punteggio(self):
         return len(self.getValide()) - len(self.getNonValide())
-
-    def singles(self):
-        return [c for c in self.cards if c.tipo == 'Singolo']
 
 # old ocaml work
 def flatten(lst):
