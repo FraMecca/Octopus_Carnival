@@ -29,6 +29,9 @@ class WColoredButton(WButton):
         self.on_click(self)
         return r
 
+    def handle_key(self, inp):
+        pass
+
     def on_click(self, *args, **kwargs):
         pass
 
@@ -39,6 +42,8 @@ class WColoredFrame(WFrame):
         title = color.decode('utf-8') + title + self.rst.decode('utf-8')
         super().__init__(w, h, title)
         self.color = color
+    def handle_key(self, inp):
+        pass
 
     def draw_box(self, left, top, width, height):
         # Use http://www.utf8-chartable.de/unicode-utf8-table.pl
@@ -73,10 +78,15 @@ class WColoredFrame(WFrame):
 class WCardRadioButton(WRadioButton):
     isHand = False
 
-    def __init__(self, items, isHand=False):
+    def __init__(self, items, id, cb, isHand=False):
         super().__init__(items)
         self.choice = 1
         self.isHand = isHand
+        self.cb = cb
+        self.id = id
+
+    def handle_key(self, inp):
+        pass # TODO: maybe enable keyboard
 
     def redraw(self):
         i = 0
@@ -95,5 +105,7 @@ class WCardRadioButton(WRadioButton):
     def handle_mouse(self, x, y):
         newchoice = y - self.y
         self.choice = 1 if self.choice == newchoice else newchoice
+        if self.choice != 1:
+            self.cb(self.id)
         self.redraw()
         self.signal("changed")

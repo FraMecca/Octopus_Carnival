@@ -4,6 +4,10 @@ from picotui.screen import Screen
 from time import sleep
 
 from widgets import *
+import state
+
+action = ''
+exit = False
 
 class FrameFactory:
     titles = ['0x10', '0x11', '0x12', '0x13', '0x14', '0x15', '0x16', '0x17',
@@ -21,7 +25,29 @@ class FrameFactory:
         self.titlen = 0
         self.hand = None
         self.maxwidth = 0
-    
+
+    def constrainAllWidgets(self, callerId):
+        cc = self.widgets[callerId].choice if id != -1 else self.hand.choice
+
+        # check hand first
+        if callerId != -1 and self.hand.choice > 1 and cc > 1:
+            self.hand.choice = 1
+            self.hand.redraw()
+            return
+        # check other widgets    
+        for w in self.widgets:
+            if w.id != callerId and w.choice != 1:
+                if w.choice == 0 and cc == 0:
+                    w.choice = 1
+                    w.redraw()
+                    return
+                elif w.choice > 1 and cc > 1:
+                    w.choice = 1
+                    w.redraw()
+                    return
+                else:
+                    pass
+                
     def newFrame(self, cards):
         # can handle 9 frames per row
         assert type(cards) is list, type(cards)
@@ -29,7 +55,7 @@ class FrameFactory:
         h = 2 + len(cards) # height ?
         self.maxwidth = h if h > self.maxwidth else self.maxwidth
         title = self.titles[self.titlen]
-        w = WCardRadioButton(cards)
+        w = WCardRadioButton(cards, len(self.widgets), self.constrainAllWidgets)
 
         self.d.add(self.x, self.y, WColoredFrame(12, h, title))
         self.d.add(self.x+1, self.y+1, w)
@@ -47,7 +73,7 @@ class FrameFactory:
 
     def emptyFrame(self):
         title = self.titles[-1]
-        w = WCardRadioButton(['', ''])
+        w = WCardRadioButton(['', ''], len(self.widgets), self.constrainAllWidgets)
 
         self.d.add(self.x, self.y, WColoredFrame(12, 4, title))
         self.d.add(self.x+1, self.y+1, w)
@@ -59,8 +85,9 @@ class FrameFactory:
     def newHandFrame(self, cards):
         assert type(cards) is list, type(cards)
         h = 27 # height ?
-        self.d.add(1, 1, WColoredFrame(12, h, 'HAND', blue))
-        w = WCardRadioButton([f'{Fore.BLUE}'+cards[0]] + cards[1:-1] + [cards[-1]+f'{Style.RESET_ALL}'], isHand=True)
+        self.d.add(1, 1, WColoredFrame(12, h, 'HAND', blue)) 
+        coloredCards = [f'{Fore.BLUE}'+cards[0]] + cards[1:-1] + [cards[-1]+f'{Style.RESET_ALL}']
+        w = WCardRadioButton(coloredCards, -1, self.constrainAllWidgets, isHand=True)
         self.d.add(2, 2, w)
         self.hand = w
 
@@ -81,44 +108,61 @@ class FrameFactory:
                 src = i, w.choice-2
         return src, dst
                 
+def makeButtons(d):
+    buttonSend = WColoredButton(7, "SND", C_RED)
+    dialog.add(108, 28, buttonSend)
+    buttonSend.finish_dialog = ACTION_OK
+    def btnSend(w):
+        global action; action = "SEND"
+    buttonSend.on_click = btnSend
 
-cc = ['asd', 'asd']
-c = ['asd', 'asd']
+    buttonRst = WColoredButton(7, "RST", C_RED)
+    dialog.add(100, 28, buttonRst)
+    buttonRst.finish_dialog = ACTION_OK
+    def btnReset(w):
+        global action; action = "RESET"
+    buttonRst.on_click = btnReset
 
-import state
-table = state.table
-hand = state.hand
+    buttonMov = WColoredButton(7, "MOV", C_BLUE)
+    dialog.add(92, 28, buttonMov)
+    buttonMov.finish_dialog = ACTION_OK
+    def btnMove(w):
+        global action; action = "MOVE"
+    buttonMov.on_click = btnMove
 
-exit = False
+    buttonDraw = WColoredButton(7, "DRW", C_RED)
+    dialog.add(84, 28, buttonDraw)
+    buttonDraw.finish_dialog = ACTION_OK
+    def btnDraw(w):
+        global action; action = "DRAW"
+    buttonDraw.on_click = btnDraw
+
+    buttonAbort = WColoredButton(13, f'{Fore.BLACK}'+" ABRT "+f'{Style.RESET_ALL}', C_WHITE)
+    dialog.add(4, 28, buttonAbort)
+    buttonAbort.finish_dialog = ACTION_OK
+    def doExit(w):
+        global action ; action = "EXIT"
+    buttonAbort.on_click = doExit
+
+    buttonback = WColoredButton(7, " BAK ", C_MAGENTA)
+    dialog.add(76, 28, buttonback)
+    buttonback.finish_dialog = ACTION_OK
+    def doBack(w):
+        global action ; action = "BACK"
+    buttonback.on_click = doBack
+
+
 while not exit:
+    table, hand = state.next()
     with Context():
 
         Screen.attr_color(C_WHITE, C_GREEN)
         Screen.cls()
         Screen.attr_reset()
-        tableDialog = Dialog(1, 1,  120, 30)
-        f = FrameFactory(tableDialog)
+        dialog = Dialog(1, 1,  120, 30)
+        f = FrameFactory(dialog)
 
-        #### BUTTONS ####
-        buttonOk = WColoredButton(7, "SND", C_RED)
-        tableDialog.add(108, 28, buttonOk)
-        buttonOk.finish_dialog = ACTION_OK
-        buttonRst = WColoredButton(7, "RST", C_RED)
-        tableDialog.add(100, 28, buttonRst)
-        buttonRst.finish_dialog = ACTION_OK
-        buttonMov = WColoredButton(7, "MOV", C_BLUE)
-        tableDialog.add(92, 28, buttonMov)
-        buttonMov.finish_dialog = ACTION_OK
-        buttonDraw = WColoredButton(7, "DRW", C_RED)
-        tableDialog.add(84, 28, buttonDraw)
-        buttonDraw.finish_dialog = ACTION_OK
-
-        buttonAbort = WColoredButton(13, f'{Fore.BLACK}'+" ABRT "+f'{Style.RESET_ALL}', C_WHITE)
-        tableDialog.add(4, 28, buttonAbort)
-        buttonAbort.finish_dialog = ACTION_OK
-        def doExit(w):
-            global exit ; exit = True
-        buttonAbort.on_click = doExit
+        makeButtons(dialog)
 
         #### FRAMES ####
         f.emptyFrame()
@@ -126,14 +170,24 @@ while not exit:
             f.newFrame(cards)
         f.newHandFrame(hand.widget_repr())
 
-        tableDialog.redraw()
-        res = tableDialog.loop()
+        dialog.redraw()
+        res = dialog.loop()
         if res == 1001 or res == 9: # or res == KEY_END or res == KEY_ESC: # 1001 is exit? # 9 is ctrl-c
             exit = True
         else:
-            print(*f.getChoices())
-            sleep(2)
-            table, hand = state.update_table(table, hand, *f.getChoices())
-
-
-print('TODO: sempre due scelte')
+            if action == 'EXIT':
+                exit = True
+            elif action == 'MOVE':
+                # TODO: transition effect
+                state.update_table(table, hand, *f.getChoices()) # get them from next
+            elif action == 'DRAW':
+                pass
+            elif action == 'RESET':
+                while state.size() > 1:
+                    state.prev()
+            elif action == 'SEND':
+                pass
+            elif action == 'BACK':
+                state.prev()
+            else:
+                assert False

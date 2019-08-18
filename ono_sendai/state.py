@@ -1,8 +1,9 @@
 import sys
 sys.path.append('../')
+import json
+
 from metro_holografix.cardtypes import *
 import symbols as sym
-
 
 Hand = Tavolo
 class Table(Tavolo):
@@ -21,21 +22,6 @@ class Table(Tavolo):
                 yi.append(sym.sym[seed][card[1]])
             yield yi
                 
-             
-
-table = Table([
-    TaggedCards([
-        Card("Pikes", 2),
-        Card("Clovers", 2),
-        Card("Tiles", 2),
-        Card("Hearts", 2)]),
-    TaggedCards([
-        Card("Hearts", 1),
-        Card("Clovers", 1),
-        Card("Pikes", 1),
-        Card("Tiles", 1)]),
-])
-
 
 class Hand:
     def __init__(self, cards):
@@ -50,17 +36,58 @@ class Hand:
             seed = card[0].lower()
             yi.append(sym.sym[seed][card[1]])
         return yi
+             
 
-hand = Hand([
-    Card("Pikes", 12),
-    Card("Clovers", 12),
-    Card("Tiles", 12),
-    Card("Hearts", 12),
-    Card("Hearts", 13),
-    Card("Clovers", 13),
-    Card("Pikes", 13),
-    Card("Tiles", 13)
-])
+events = [ # list of tuples table-hand
+    (Table([
+        TaggedCards([
+            Card("Pikes", 2),
+            Card("Clovers", 2),
+            Card("Tiles", 2),
+            Card("Hearts", 2)]),
+        TaggedCards([
+            Card("Hearts", 1),
+            Card("Clovers", 1),
+            Card("Pikes", 1),
+            Card("Tiles", 1)]),
+    ]), Hand([
+        Card("Pikes", 12),
+        Card("Clovers", 12),
+        Card("Tiles", 12),
+        Card("Hearts", 12),
+        Card("Hearts", 13),
+        Card("Clovers", 13),
+        Card("Pikes", 13),
+        Card("Tiles", 13)
+    ]))
+]
+
+def fromJson(j):
+    hcards = [Card(seed, value) for seed, value in j['hand']]
+    tcards = []
+    for tc in j['table']:
+        tcards.append(TaggedCards([Card(seed, value) for seed, value in tc]))
+    return Table(tcards), Hand(hcards)
+
+def toJson(table, hand):
+    j = dict()
+    j['hand'] = hand.cards
+    j['table'] = []
+    for tc in table.cards:
+        j['table'].append(tc.cards)
+    return json.dumps(j)
+
+def next():
+    return events[-1]
+
+def prev():
+    if len(events) >= 2:
+        return events.pop()
+    else:
+        return events[0]
+
+def size():
+    return len(events)
 
 # TODO: refactor language
 def gioca(tavolo, hand, src, dst):
@@ -90,4 +117,6 @@ def gioca(tavolo, hand, src, dst):
     return Table(news), Hand(hcards)
 
 def update_table(table, hand, src, dst):
-    return gioca(table, hand, src, dst)
+    t, h = gioca(table, hand, src, dst)
+    events.append((t, h))
+    return t, h
