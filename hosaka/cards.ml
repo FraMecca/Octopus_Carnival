@@ -16,6 +16,14 @@ let card_type_to_string = function
   | Pikes-> "Pikes"
   | Nothing-> "Nothing"
 
+let string_to_card_type = function 
+  | "Hearts" -> Hearts
+  | "Tiles" -> Tiles
+  | "Clovers" -> Clovers
+  | "Pikes" -> Pikes
+  | "Nothing" -> Nothing
+  | _ -> assert false
+
 type card = { seed: card_type ; value: int }
 
 let make seed value =

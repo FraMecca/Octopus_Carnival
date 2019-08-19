@@ -3,15 +3,18 @@ from picotui.screen import Screen
 
 from time import sleep
 import os
+import json
 
 from widgets import *
+from state import Table, Hand
+from metro_holografix.cardtypes import *
 import state
 
 action = ''
 exit = False
 ID = "tui"
 
-game = state.State([ID, "bot1"])
+game = state.State(["bot1", ID])
 
 class FrameFactory:
     titles = ['0x10', '0x11', '0x12', '0x13', '0x14', '0x15', '0x16', '0x17',
@@ -161,32 +164,76 @@ def wrong_play():
     print(f'{Fore.RED}'+'Wrong play. Retry...'+f'{Style.RESET_ALL}')
     sleep(2)
 
-def make_auto_move():
+def spawn_and_wait(str):
     import sys
+    from subprocess import PIPE, Popen
     from animation.octopus import animate
+
+    r, w = os.pipe()
     pid = os.fork()
     if pid == 0:
         # child
-        os.system('sleep 1')
-        os.system('echo DRAW')
+        os.close(r)
+        res = Popen(["../hosaka/_build/default/main.exe"], stdout=PIPE, stdin=PIPE)
+        out, err = res.communicate(str.encode('utf-8'))
+        res.stdin.close()
+        w = os.fdopen(w, 'w')
+        w.write(out.decode('utf-8'))
         sys.exit()
     else:
+        os.close(w)
         p = os.waitpid(pid, os.WNOHANG)
         while p == (0, 0):
             animate(10)
             p = os.waitpid(pid, os.WNOHANG)
+        r = os.fdopen(r)
+        output = r.read()
+        return output
+
+def validate_auto_play(original, nl):
+    # nl is a nested list of taggedcards, but without type
+    # must reconstruct
+    def make_cards(l):
+        return Card(*l)
+    pp = []
+    for ts in nl:
+        pp.append(TaggedCards([make_cards(cl) for cl in ts]))
+    hand = Hand([c for cards in [p.cards for p in pp if p.tag == 'NonValido'] for c in cards])
+    table = Table([p for p in pp if p.tag == 'Valido'])
+    assert len(table.cards) == 0 or table.is_valid()
+    if original.equality(table) == True:
+        return 'DRAW'
+    else:
+        return table, hand
+
+    
+def make_auto_move(original, game):
+    table, hand = game.last()
+    tstr = state.toJson(table, hand)
+    output = spawn_and_wait(tstr)
+    res = validate_auto_play(original, json.loads(output))
+    if type(res) is str:
         game.draw()
-        game.next_turn()
+    elif type(res) is tuple:
+        game.advance(*res)
+        game.done()
+    else:
+        assert False, type(res)
+    game.next_turn()
     
 
 game.next_turn()
-while not exit:
+while not exit and not game.hasEnded:
     while game.cur_player != ID:
-        make_auto_move()
+        make_auto_move(game.last()[0], game)
+        if game.hasEnded == True:
+            break
+    if game.hasEnded == True:
+        break
         
-    table, hand = game.last()
     with Context():
 
+        table, hand = game.last()
         Screen.attr_color(C_WHITE, C_GREEN)
         Screen.cls()
         Screen.attr_reset()
@@ -210,7 +257,11 @@ while not exit:
                 exit = True
             elif action == 'MOVE':
                 # TODO: transition effect
-                game.advance(*f.getChoices()) # get them from next
+                src, dst = f.getChoices()
+                if src[0] is not None and src[1] is not None and dst is not None:
+                    game.move_and_advance(src, dst) # get them from next
+                else:
+                    continue
             elif action == 'DRAW':
                 game.draw()
                 game.next_turn()
@@ -227,3 +278,10 @@ while not exit:
                 game.backtrack()
             else:
                 assert False
+
+if game.hasEnded:
+    print(f'{Fore.RED}' + "Game has ended, player '" + game.winner + "' has won"+f'{Style.RESET_ALL}')
+
+print('TODO: ordina per bene KQ12, mostra le carte in mano agli altri')
+print('LOGGER')
+print('magari perche` la mossa e` sbagliata')

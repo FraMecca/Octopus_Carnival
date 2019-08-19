@@ -12,7 +12,10 @@ import symbols as sym
 class Table(Tavolo):
 
     def is_valid(self):
-        return len(self.singles()) == 0 and len(self.getNonValide()) == 0
+        return len(self.cards) == 0 or (len(self.singles()) == 0 and len(self.getNonValide()) == 0)
+
+    def flatten(self):
+        return [c for tc in self.cards for c in tc.cards]
 
     def widget_repr(self):
         for ts in self.cards:
@@ -24,6 +27,17 @@ class Table(Tavolo):
                 seed = card[0].lower()
                 yi.append(sym.sym[seed][card[1]])
             yield yi
+
+    def equality(self, other):
+        b = set(other.flatten())
+        a = set(self.flatten())
+        gt = a - b
+        lt = b - a
+        if gt == lt and lt == set():
+            return True
+        else:
+            return False
+        
                 
 
 class Hand:
@@ -57,6 +71,8 @@ class WrongMoveException(Exception):
 class State:
     def __init__(self, ids):
         self.deck = make_deck()
+        self.winner = None
+        self.hasEnded = False
         self.players = dict()
         self.table = Table([])
         self.round = None
@@ -70,6 +86,7 @@ class State:
         hand = self.players[self.cur_player] 
         nhand = Hand(hand.cards + [self.deck.pop()])
         self.players[self.cur_player] = nhand
+        assert len(self.players[self.cur_player].cards) == len(hand.cards) + 1
         self.round = None
 
     def next_turn(self):
@@ -82,11 +99,15 @@ class State:
         assert self.round is not None
         original = self.table
         table, hand = self.last()
-        if not table.is_valid() or len(set(original.cards) - set(table.cards)) != 0:
+        if not table.is_valid() or len(set(original.flatten()) - set(table.flatten())) != 0:
             raise WrongMoveException()
         else:
             self.table, self.players[self.cur_player] = table, hand
             self.round = None
+            if len(hand.cards) == 0:
+                # won
+                self.hasEnded = True
+                self.winner = self.cur_player
         
     def last(self):
         return self.round[-1]
@@ -100,11 +121,15 @@ class State:
     def size(self):
         return len(self.round)
 
-    def advance(self, src, dst):
+    def move_and_advance(self, src, dst):
         table, hand = self.last()
         t, h = gioca(table, hand, src, dst)
         self.round.append((t, h))
         return t, h
+
+    def advance(self, table, hand):
+        self.round.append((table, hand))
+        return table, hand
 
 def fromJson(j):
     hcards = [Card(seed, value) for seed, value in j['hand']]
