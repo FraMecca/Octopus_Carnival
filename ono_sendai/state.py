@@ -4,6 +4,8 @@ import json
 from copy import deepcopy as copy
 from functools import cmp_to_key
 
+from time import sleep
+
 from IPython import embed as fuck
 
 from metro_holografix.cardtypes import *
@@ -17,9 +19,23 @@ class Table(Tavolo):
     def flatten(self):
         return [c for tc in self.cards for c in tc.cards]
 
+    def split_repr(self, ocards):
+        l = len(ocards)
+        if l == 13:
+            return ocards
+        else:
+            i = l-1
+            while ocards[i].value-1 == ocards[i-1].value:
+                i -= 1
+            return ocards[i:] + ocards[:i]
+
     def widget_repr(self):
         for ts in self.cards:
             ocards = list(sorted(ts.cards, key=lambda c: c.value))
+
+            if ts.tipo == 'Scala' and ocards[-1].value == 13 and ocards[0].value == 1:
+                ocards = self.split_repr(ocards)
+
             yi = [sym.big['hat']]
             seed = ocards[0][0].lower()
             yi.append(sym.big[seed])
@@ -65,7 +81,7 @@ def make_deck():
             yield Card(seed, i)
     odeck = [m for seed in ['Pikes', 'Hearts', 'Clovers', 'Tiles']  for m in make_set(seed)] * 2
     shuffle(odeck)
-    assert len(odeck) == 104 
+    assert len(odeck) == 104
     return odeck
 
 class WrongMoveException(Exception):

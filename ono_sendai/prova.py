@@ -11,7 +11,7 @@ from state import Table, Hand
 from metro_holografix.cardtypes import *
 import state
 
-logging.basicConfig(level=logging.INFO, filename='game.log', filemode='w', format='%(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, filename='game.log', filemode='a', format='%(levelname)s - %(message)s')
 logging.info("START")
 
 action = ''
@@ -190,7 +190,7 @@ def spawn_and_wait(tstr, difficulty):
         os.close(w)
         p = os.waitpid(pid, os.WNOHANG)
         while p == (0, 0):
-            # animate(10)
+            animate(10)
             p = os.waitpid(pid, os.WNOHANG)
         r = os.fdopen(r)
         output = r.read()
@@ -234,6 +234,7 @@ def main(difficulty):
     global exit, action 
 
     game = state.State(["bot1", ID])
+    # game = state.State([ID, "bot1"])
 
     game.next_turn()
 
