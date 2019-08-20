@@ -30,6 +30,8 @@ class WColoredButton(WButton):
         return r
 
     def handle_key(self, inp):
+        if inp in [KEY_ENTER, b's', b'd', b'm']:
+            return inp
         pass
 
     def on_click(self, *args, **kwargs):
@@ -42,7 +44,10 @@ class WColoredFrame(WFrame):
         title = color.decode('utf-8') + title + self.rst.decode('utf-8')
         super().__init__(w, h, title)
         self.color = color
+
     def handle_key(self, inp):
+        if inp in [KEY_ENTER, b's', b'd', b'm']:
+            return inp
         pass
 
     def draw_box(self, left, top, width, height):
@@ -86,7 +91,9 @@ class WCardRadioButton(WRadioButton):
         self.id = id
 
     def handle_key(self, inp):
-        pass # TODO: maybe enable keyboard
+        if inp in [KEY_ENTER, b's', b'd', b'm']:
+            return inp
+        pass
 
     def redraw(self):
         i = 0

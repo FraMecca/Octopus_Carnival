@@ -4,17 +4,19 @@ from picotui.screen import Screen
 from time import sleep
 import os
 import json
+import logging
 
 from widgets import *
 from state import Table, Hand
 from metro_holografix.cardtypes import *
 import state
 
+logging.basicConfig(level=logging.INFO, filename='game.log', filemode='w', format='%(levelname)s - %(message)s')
+logging.info("START")
+
 action = ''
 exit = False
-ID = "tui"
-
-game = state.State(["bot1", ID])
+ID = "you"
 
 class FrameFactory:
     titles = ['0x10', '0x11', '0x12', '0x13', '0x14', '0x15', '0x16', '0x17',
@@ -92,7 +94,7 @@ class FrameFactory:
     def newHandFrame(self, cards):
         assert type(cards) is list, type(cards)
         h = 27 # height ?
-        self.d.add(1, 1, WColoredFrame(12, h, 'HAND: '+str(len(cards)), blue)) 
+        self.d.add(1, 1, WColoredFrame(12, h, 'HAND: '+str(len(cards)-2), blue)) 
         coloredCards = [f'{Fore.BLUE}'+cards[0]] + cards[1:-1] + [cards[-1]+f'{Style.RESET_ALL}']
         w = WCardRadioButton(coloredCards, -1, self.constrainAllWidgets, isHand=True)
         self.d.add(2, 2, w)
@@ -115,7 +117,7 @@ class FrameFactory:
                 src = i, w.choice-2
         return src, dst
                 
-def makeButtons(d):
+def makeButtons(dialog, stats):
     buttonSend = WColoredButton(7, "SND", C_RED)
     dialog.add(108, 28, buttonSend)
     buttonSend.finish_dialog = ACTION_OK
@@ -144,6 +146,9 @@ def makeButtons(d):
         global action; action = "DRAW"
     buttonDraw.on_click = btnDraw
 
+    buttonStats = WColoredButton(13, stats, C_BLACK)
+    dialog.add(15, 28, buttonStats)
+
     buttonAbort = WColoredButton(13, f'{Fore.BLACK}'+" ABRT "+f'{Style.RESET_ALL}', C_WHITE)
     dialog.add(4, 28, buttonAbort)
     buttonAbort.finish_dialog = ACTION_OK
@@ -164,7 +169,7 @@ def wrong_play():
     print(f'{Fore.RED}'+'Wrong play. Retry...'+f'{Style.RESET_ALL}')
     sleep(2)
 
-def spawn_and_wait(str):
+def spawn_and_wait(tstr, difficulty):
     import sys
     from subprocess import PIPE, Popen
     from animation.octopus import animate
@@ -174,8 +179,9 @@ def spawn_and_wait(str):
     if pid == 0:
         # child
         os.close(r)
-        res = Popen(["../hosaka/_build/default/main.exe"], stdout=PIPE, stdin=PIPE)
-        out, err = res.communicate(str.encode('utf-8'))
+        res = Popen(["../hosaka/_build/default/main.exe", str(difficulty)], stdout=PIPE, stdin=PIPE)
+        out, err = res.communicate(tstr.encode('utf-8'))
+        print(out, err)
         res.stdin.close()
         w = os.fdopen(w, 'w')
         w.write(out.decode('utf-8'))
@@ -184,7 +190,7 @@ def spawn_and_wait(str):
         os.close(w)
         p = os.waitpid(pid, os.WNOHANG)
         while p == (0, 0):
-            animate(10)
+            # animate(10)
             p = os.waitpid(pid, os.WNOHANG)
         r = os.fdopen(r)
         output = r.read()
@@ -207,14 +213,16 @@ def validate_auto_play(original, nl):
         return table, hand
 
     
-def make_auto_move(original, game):
+def make_auto_move(original, game, difficulty):
     table, hand = game.last()
     tstr = state.toJson(table, hand)
-    output = spawn_and_wait(tstr)
+    output = spawn_and_wait(tstr, difficulty)
     res = validate_auto_play(original, json.loads(output))
     if type(res) is str:
+        logging.info(f"BOT-DRAW ({game.nrounds}): {game.cur_player} = {game.last()}")
         game.draw()
     elif type(res) is tuple:
+        logging.info(f"BOT-MOVE ({game.nrounds}): {game.cur_player} = {res}")
         game.advance(*res)
         game.done()
     else:
@@ -222,66 +230,99 @@ def make_auto_move(original, game):
     game.next_turn()
     
 
-game.next_turn()
-while not exit and not game.hasEnded:
-    while game.cur_player != ID:
-        make_auto_move(game.last()[0], game)
+def main(difficulty):
+    global exit, action 
+
+    game = state.State(["bot1", ID])
+
+    game.next_turn()
+
+    while not exit and not game.hasEnded:
+        while game.cur_player != ID:
+            make_auto_move(game.last()[0], game, difficulty)
+            if game.hasEnded == True:
+                break
         if game.hasEnded == True:
             break
-    if game.hasEnded == True:
-        break
-        
-    with Context():
 
-        table, hand = game.last()
-        Screen.attr_color(C_WHITE, C_GREEN)
-        Screen.cls()
-        Screen.attr_reset()
-        dialog = Dialog(1, 1,  120, 30)
-        f = FrameFactory(dialog)
+        with Context():
 
-        makeButtons(dialog)
+            table, hand = game.last()
+            Screen.attr_color(C_WHITE, C_GREEN)
+            Screen.cls()
+            Screen.attr_reset()
+            dialog = Dialog(1, 1,  120, 30)
+            f = FrameFactory(dialog)
 
-        #### FRAMES ####
-        f.emptyFrame()
-        for cards in table.widget_repr():
-            f.newFrame(cards)
-        f.newHandFrame(hand.widget_repr())
+            stats = f' Round: {game.nrounds} - '
+            for idp, h in game.players.items():
+                stats += f'{idp}: {len(h.cards)}, '
+            stats = stats[:-2] + ' ' # remove last comma
+            makeButtons(dialog, stats)
 
-        dialog.redraw()
-        res = dialog.loop()
-        if res == 1001 or res == 9: # or res == KEY_END or res == KEY_ESC: # 1001 is exit? # 9 is ctrl-c
-            exit = True
-        else:
-            if action == 'EXIT':
+            #### FRAMES ####
+            f.emptyFrame()
+            for cards in table.widget_repr():
+                f.newFrame(cards)
+            f.newHandFrame(hand.widget_repr())
+
+            dialog.redraw()
+            res = dialog.loop()
+            if res == 1001 or res == 9: # or res == KEY_END or res == KEY_ESC: # 1001 is exit? # 9 is ctrl-c
                 exit = True
-            elif action == 'MOVE':
-                # TODO: transition effect
-                src, dst = f.getChoices()
-                if src[0] is not None and src[1] is not None and dst is not None:
-                    game.move_and_advance(src, dst) # get them from next
-                else:
-                    continue
-            elif action == 'DRAW':
-                game.draw()
-                game.next_turn()
-            elif action == 'RESET':
-                while game.size() > 1:
-                    game.backtrack()
-            elif action == 'SEND':
-                try:
-                    game.done()
-                    game.next_turn()
-                except state.WrongMoveException as e:
-                    wrong_play()
-            elif action == 'BACK':
-                game.backtrack()
             else:
-                assert False
+                if action == 'EXIT':
+                    exit = True
+                elif action == 'MOVE' or res == KEY_ENTER or res == b'm':
+                    # TODO: transition effect
+                    src, dst = f.getChoices()
+                    if src[0] is not None and src[1] is not None and dst is not None:
+                        game.move_and_advance(src, dst) # get them from next
+                        logging.info(f"MOVE ({game.nrounds}): {game.cur_player} = {src}:{dst}")
+                    else:
+                        continue
+                elif action == 'DRAW' or res == b'd':
+                    logging.info(f"DRAW ({game.nrounds}): {game.cur_player} = {game.last()}")
+                    game.draw()
+                    game.next_turn()
+                elif action == 'RESET':
+                    while game.size() > 1:
+                        game.backtrack()
+                    logging.info(f"RESET ({game.nrounds}): {game.cur_player}")
+                elif action == 'SEND' or res == b's':
+                    try:
+                        th = game.last()
+                        pl = game.cur_player
+                        game.done()
+                        logging.info(f"DONE ({game.nrounds}): {pl}' = {th}")
+                        game.next_turn()
+                    except state.WrongMoveException as e:
+                        wrong_play()
+                        logging.info(f"WRONGPLAY ({game.nrounds}): {game.cur_player} = {game.last()}")
+                elif action == 'BACK':
+                    game.backtrack()
+                    logging.info(f"BACK ({game.nrounds}): {game.cur_player}")
+                else:
+                    pass
 
-if game.hasEnded:
-    print(f'{Fore.RED}' + "Game has ended, player '" + game.winner + "' has won"+f'{Style.RESET_ALL}')
+    if game.hasEnded:
+        print(f'{Fore.RED}' + "Game has ended, player '" + game.winner + "' has won"+f'{Style.RESET_ALL}')
 
-print('TODO: ordina per bene KQ12, mostra le carte in mano agli altri')
-print('LOGGER')
-print('magari perche` la mossa e` sbagliata')
+
+if __name__ == '__main__':
+    from sys import argv
+
+    print(argv[1])
+    diff = argv[1]
+    if diff == 'easy':
+        main(7)
+    elif diff == 'medium':
+        main(14)
+    elif diff == 'hard':
+        main(21)
+    else:
+        try:
+            diff = int(diff)
+        except:
+            print('Wrong argument for difficulty')
+        main(int(diff))

@@ -56,8 +56,9 @@ let neighbors (tcs:tcards) table : card list=
 
 let constraints start eend =
   let hand = List.filter (fun ts -> ts.strategy = Single) start.cards in
-  let res = List.filter (fun (e:tcards) -> e.strategy = Single && not (List.mem e hand)) eend.cards in
-  (List.length res) = 0
+  let res = eend.cards |> List.filter (fun (e:tcards) -> e.strategy = Single && not (List.mem e hand)) in
+  let invs = eend.cards |> List.filter (fun (e:tcards) -> e.strategy <> Single && e.tag = Invalid) in
+  (List.length res) = 0  && (List.length invs) = 0
 
 let doesnt_improve n scores =
   if List.length scores < n then
@@ -104,7 +105,7 @@ let alg ?maxiter original (dbg: int -> int -> table -> unit) =
       should_exit := is_best_outcome table;
       Hashtbl.add set cur_hash ();
       dbg n cur_score table ;
-      if constraints original table && cur_score > !max_score then
+      if cur_score > !max_score && constraints original table then
         (max_score := cur_score ; best := table ) ;
 
       if !should_exit || n > maxiter || doesnt_improve (maxiter/2) uscores then

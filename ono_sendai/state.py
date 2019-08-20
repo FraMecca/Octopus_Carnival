@@ -19,11 +19,12 @@ class Table(Tavolo):
 
     def widget_repr(self):
         for ts in self.cards:
+            ocards = list(sorted(ts.cards, key=lambda c: c.value))
             yi = [sym.big['hat']]
-            seed = ts.cards[0][0].lower()
+            seed = ocards[0][0].lower()
             yi.append(sym.big[seed])
-            yi.append(sym.big[ts.cards[0][1]])
-            for card in ts.cards[1:]:
+            yi.append(sym.big[ocards[0][1]])
+            for card in ocards[1:]:
                 seed = card[0].lower()
                 yi.append(sym.sym[seed][card[1]])
             yield yi
@@ -37,14 +38,15 @@ class Table(Tavolo):
             return True
         else:
             return False
-        
-                
 
 class Hand:
     def __init__(self, cards):
         def sortc(a, b):
             return -1 if (a[1],a[0]) < (b[1],b[0]) else 1
         self.cards = list(sorted(cards, key=cmp_to_key(sortc)))
+
+    def __repr__(self):
+        return 'Hand<'+ str(self.cards) + '>'
 
     def widget_repr(self):
         yi = [sym.big['hat']]
@@ -61,8 +63,9 @@ def make_deck():
     def make_set(seed):
         for i in range(1, 14):
             yield Card(seed, i)
-    odeck = [m for seed in ['Pikes', 'Hearts', 'Clovers', 'Tiles']  for m in make_set(seed)]
+    odeck = [m for seed in ['Pikes', 'Hearts', 'Clovers', 'Tiles']  for m in make_set(seed)] * 2
     shuffle(odeck)
+    assert len(odeck) == 104 
     return odeck
 
 class WrongMoveException(Exception):
@@ -75,9 +78,10 @@ class State:
         self.hasEnded = False
         self.players = dict()
         self.table = Table([])
-        self.round = None
+        self.turn = None
         self.ids = ids
         self.cur_player = ids[0]
+        self.nrounds = 0
         for i in ids:
             cards = [self.deck.pop() for i in range(11)]
             self.players[i] = Hand(cards)
@@ -87,48 +91,54 @@ class State:
         nhand = Hand(hand.cards + [self.deck.pop()])
         self.players[self.cur_player] = nhand
         assert len(self.players[self.cur_player].cards) == len(hand.cards) + 1
-        self.round = None
+        self.turn = None
 
     def next_turn(self):
-        assert self.round is None
+        assert self.turn is None
         next_player = self.ids[(self.ids.index(self.cur_player) + 1) % len(self.ids)]
         self.cur_player = next_player
-        self.round = [(copy(self.table), copy(self.players[self.cur_player]))]
+        self.turn = [(copy(self.table), copy(self.players[self.cur_player]))]
+        self.nrounds = self.nrounds + 1 if self.cur_player == self.ids[0] else self.nrounds
 
     def done(self):
-        assert self.round is not None
+        assert self.turn is not None
         original = self.table
         table, hand = self.last()
-        if not table.is_valid() or len(set(original.flatten()) - set(table.flatten())) != 0:
+
+        if original.equality(table):
+            raise WrongMoveException()
+        elif not table.is_valid() or len(set(original.flatten()) - set(table.flatten())) != 0:
+            if self.cur_player != 'you':
+                fuck() # debug
             raise WrongMoveException()
         else:
             self.table, self.players[self.cur_player] = table, hand
-            self.round = None
+            self.turn = None
             if len(hand.cards) == 0:
                 # won
                 self.hasEnded = True
                 self.winner = self.cur_player
         
     def last(self):
-        return self.round[-1]
+        return self.turn[-1]
 
     def backtrack(self):
-        if len(self.round) >= 2:
-            return self.round.pop()
+        if len(self.turn) >= 2:
+            return self.turn.pop()
         else:
-            return self.round[0]
+            return self.turn[0]
 
     def size(self):
-        return len(self.round)
+        return len(self.turn)
 
     def move_and_advance(self, src, dst):
         table, hand = self.last()
         t, h = gioca(table, hand, src, dst)
-        self.round.append((t, h))
+        self.turn.append((t, h))
         return t, h
 
     def advance(self, table, hand):
-        self.round.append((table, hand))
+        self.turn.append((table, hand))
         return table, hand
 
 def fromJson(j):
@@ -146,12 +156,12 @@ def toJson(table, hand):
         j['table'].append(tc.cards)
     return json.dumps(j)
 
-
 # TODO: refactor language
 def gioca(tavolo, hand, src, dst):
     giocata = [] if dst == 'Empty' else tavolo.cards[dst]
     da_muovere = hand.cards[src[1]] if src[0] == 'Hand' else tavolo.cards[src[0]].cards[src[1]]
     hcards = hand.cards[:src[1]] + hand.cards[src[1]+1:] if src[0] == 'Hand' else hand.cards
+    assert src[0] != 'Hand' or len(hcards) == len(hand.cards) - 1
 
     assert type(dst) is int or dst == 'Empty'
     assert type(src[0]) is int or src[0] == 'Hand'
@@ -173,4 +183,3 @@ def gioca(tavolo, hand, src, dst):
         else:
             news.append(t)
     return Table(news), Hand(hcards)
-

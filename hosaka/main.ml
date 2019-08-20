@@ -9,6 +9,7 @@ open Yojson.Basic.Util;;
 
 let read_json () =
   let json = Yojson.Basic.from_channel stdin in let open Yojson.Basic.Util in
+  (* let json = Yojson.Basic.from_file "../ono_sendai/debug.json" in let open Yojson.Basic.Util in *)
   let make_card l =
     let hd = List.hd l |> to_string in
     let tl = List.tl l |> List.hd |> to_int in
@@ -29,9 +30,14 @@ let to_json (table:Table.table) =
     cards_to_json tc.cards in
   `List (List.map (fun tcl -> tcards_to_json tcl) table.cards);;
 
-let open Yojson.Basic.Util in
-let hand, table = read_json () in
-let tn = Table.make (table.cards@hand) in
-let res, _ = Table.alg ~maxiter:14 tn void_printer in
-(* Printf.printf "%a\n" print_table res;; *)
-to_json res |> Yojson.Basic.to_channel stdout
+let main maxiter = 
+  let open Yojson.Basic.Util in
+  let hand, table = read_json () in
+  let tn = Table.make (table.cards@hand) in
+  let res, _ = Table.alg ~maxiter:maxiter tn void_printer in
+  (* Printf.printf "%a\n" print_table res;; *)
+  to_json res |> Yojson.Basic.to_channel stdout
+
+let () =
+  let n = Sys.argv.(1) |> int_of_string in
+  main n
