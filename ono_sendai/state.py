@@ -88,7 +88,9 @@ class WrongMoveException(Exception):
     pass
 
 class State:
-    def __init__(self, ids):
+    def __init__(self, human, ids):
+        assert human in ids
+        self.humanPlayer = human
         self.deck = make_deck()
         self.winner = None
         self.hasEnded = False
@@ -124,8 +126,8 @@ class State:
         if original.equality(table):
             raise WrongMoveException()
         elif not table.is_valid() or len(set(original.flatten()) - set(table.flatten())) != 0:
-            if self.cur_player != 'you':
-                fuck() # debug
+            if self.cur_player != self.humanPlayer:
+                fuck() # debug # TODO: should remove
             raise WrongMoveException()
         else:
             self.table, self.players[self.cur_player] = table, hand
@@ -147,15 +149,33 @@ class State:
     def size(self):
         return len(self.turn)
 
-    def move_and_advance(self, src, dst):
-        table, hand = self.last()
-        t, h = gioca(table, hand, src, dst)
-        self.turn.append((t, h))
-        return t, h
-
     def advance(self, table, hand):
         self.turn.append((table, hand))
         return table, hand
+
+    def dump(self):
+        j = dict()
+        j['table'] = [tc.cards for tc in self.table.cards]
+        for pl, hand in self.players.items():
+            j[pl] = hand.cards
+        j['nrounds'] = self.nrounds
+        j['players'] = list(self.players.keys())
+        with open('save.machiavelli', 'w') as f:
+            f.write(json.dumps(j))
+        return j
+
+    def load(self):
+        with open('save.machiavelli', 'r') as f:
+            j = json.loads(f.read())
+        self.nrounds = j['nrounds']
+        tcards = []
+        for tc in j['table']:
+            tcards.append(TaggedCards([Card(seed, value) for seed, value in tc]))
+        self.table = Table(tcards)
+        self.players = dict()
+        for pl in j['players']:
+            self.players[pl] = Hand([Card(seed, value) for seed, value in j[pl]])
+        
 
 def fromJson(j):
     hcards = [Card(seed, value) for seed, value in j['hand']]
@@ -172,30 +192,110 @@ def toJson(table, hand):
         j['table'].append(tc.cards)
     return json.dumps(j)
 
-# TODO: refactor language
-def gioca(tavolo, hand, src, dst):
-    giocata = [] if dst == 'Empty' else tavolo.cards[dst]
-    da_muovere = hand.cards[src[1]] if src[0] == 'Hand' else tavolo.cards[src[0]].cards[src[1]]
-    hcards = hand.cards[:src[1]] + hand.cards[src[1]+1:] if src[0] == 'Hand' else hand.cards
-    assert src[0] != 'Hand' or len(hcards) == len(hand.cards) - 1
+# def gioca(tavolo, hand, src, dst):
+#     giocata = [] if dst == 'Empty' else tavolo.cards[dst]
+#     da_muovere = hand.cards[src[1]] if src[0] == 'Hand' else tavolo.cards[src[0]].cards[src[1]]
+#     hcards = hand.cards[:src[1]] + hand.cards[src[1]+1:] if src[0] == 'Hand' else hand.cards
+#     assert src[0] != 'Hand' or len(hcards) == len(hand.cards) - 1
 
-    assert type(dst) is int or dst == 'Empty'
-    assert type(src[0]) is int or src[0] == 'Hand'
-    assert type(da_muovere) is Card
-    assert type(giocata) is TaggedCards or giocata == []
+#     assert type(dst) is int or dst == 'Empty'
+#     assert type(src[0]) is int or src[0] == 'Hand'
+#     assert type(da_muovere) is Card
+#     assert type(giocata) is TaggedCards or giocata == []
 
-    idx = -1 if dst == 'Empty' else tavolo.cards.index(giocata) 
-    news = [TaggedCards([da_muovere])] if type(giocata) is list else []
-    rimpiazzata = False
-    for i, t in enumerate(tavolo.cards):
-        if i == idx:
-            p = TaggedCards(giocata.cards + [da_muovere])
-            news.append(p)
-        elif not rimpiazzata and da_muovere in t.cards:
-            t = [c for c in t.cards if c != da_muovere]
-            if t != []:
-                news.append(TaggedCards(t))
-            rimpiazzata = True
+#     idx = -1 if dst == 'Empty' else tavolo.cards.index(giocata)
+#     if type(giocata) is list: # we want a new empty cell
+#         news = [TaggedCards([da_muovere])]
+#     else:
+#         news = []
+
+def fromHandToEmpty(table, hand, src):
+    assert type(src) is int
+    to_move = hand.cards[src]
+    hcards = hand.cards[:src] + hand.cards[src+1:]
+    assert len(hcards) == len(hand.cards) - 1
+
+    assert type(to_move) is Card
+
+    news = [TaggedCards([to_move])] + table.cards
+    newTable = Table(news)
+    assert len(newTable.flatten()) + len(hcards) == len(hand.cards) + len(table.flatten()), fuck()
+    return newTable, Hand(hcards)
+
+def fromHandToTable(table, hand, src, dst):
+    assert type(dst) is int
+    assert type(src) is int
+
+    in_play = table.cards[dst]
+    to_move = hand.cards[src]
+    hcards = hand.cards[:src] + hand.cards[src+1:]
+    assert len(hcards) == len(hand.cards) - 1
+
+    assert type(to_move) is Card
+    assert type(in_play) is TaggedCards or in_play == []
+
+    idx = table.cards.index(in_play)
+    news = []
+    news = table.cards[:dst] + table.cards[dst+1:] + [TaggedCards(table.cards[dst].cards + [to_move])]
+    newTable = Table(news)
+    assert len(newTable.flatten()) + len(hcards) == len(hand.cards) + len(table.flatten()), fuck()
+    return newTable, Hand(hcards)
+
+def removeFromTcards(t, to_move):
+    # tmp = []
+    # for j, c in enumerate(t.cards):
+    #     if c == to_move:
+    #         break
+    #     tmp.append(c)
+    # tmp.extend(t.cards[j+1:])
+    # return tmp
+    cards = copy(t.cards)
+    cards.remove(to_move)
+    return cards
+
+def fromTableToEmpty(table, hand, src, to_move):
+    assert type(src) is tuple # TODO: unused src[1], even in other TableToTable
+    in_play = []
+    tpos, cpos = src
+    hcards = hand.cards
+
+    assert type(src[0]) is int
+    assert type(to_move) is Card
+
+    news = [TaggedCards([to_move])]
+
+    for i, t in enumerate(table.cards):
+        if tpos == i:
+            tmp = removeFromTcards(t, to_move)
+            if tmp != []:
+                news.append(TaggedCards(tmp))
         else:
             news.append(t)
-    return Table(news), Hand(hcards)
+    newTable = Table(news)
+    assert len(newTable.flatten()) + len(hcards) == len(hand.cards) + len(table.flatten()), fuck()
+    return newTable, Hand(hcards)
+
+def fromTableToTable(table, hand, src, dst, to_move):
+    assert type(src) is tuple
+    in_play = table.cards[dst]
+    tpos, cpos = src
+    # to_move = table.cards[tpos].cards[cpos]
+    hcards = hand.cards
+    assert type(to_move) is Card
+    assert type(in_play) is TaggedCards
+
+    news = []
+    rimpiazzata = False
+    for i, t in enumerate(table.cards):
+        if i == dst:
+            p = TaggedCards(in_play.cards + [to_move])
+            news.append(p)
+        elif tpos == i:
+            tmp = removeFromTcards(t, to_move)
+            if tmp != []:
+                news.append(TaggedCards(tmp))
+        else:
+            news.append(t)
+    newTable = Table(news)
+    assert len(newTable.flatten()) + len(hcards) == len(hand.cards) + len(table.flatten()), fuck()
+    return newTable, Hand(hcards)

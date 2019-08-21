@@ -30,7 +30,7 @@ class WColoredButton(WButton):
         return r
 
     def handle_key(self, inp):
-        if inp in [KEY_ENTER, b's', b'd', b'm']:
+        if inp in [KEY_ENTER, b's', b'd', b'm', b'p']:
             return inp
         pass
 
@@ -46,7 +46,7 @@ class WColoredFrame(WFrame):
         self.color = color
 
     def handle_key(self, inp):
-        if inp in [KEY_ENTER, b's', b'd', b'm']:
+        if inp in [KEY_ENTER, b's', b'd', b'm', b'p']:
             return inp
         pass
 
@@ -91,7 +91,7 @@ class WCardRadioButton(WRadioButton):
         self.id = id
 
     def handle_key(self, inp):
-        if inp in [KEY_ENTER, b's', b'd', b'm']:
+        if inp in [KEY_ENTER, b's', b'd', b'm', b'p']:
             return inp
         pass
 

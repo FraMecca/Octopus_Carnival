@@ -11,12 +11,12 @@ from state import Table, Hand
 from metro_holografix.cardtypes import *
 import state
 
-logging.basicConfig(level=logging.INFO, filename='game.log', filemode='a', format='%(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, filename='/tmp/game.log', filemode='a', format='%(levelname)s - %(message)s')
 logging.info("START")
 
 action = ''
 exit = False
-ID = "you"
+ID = "YOU"
 
 class FrameFactory:
     titles = ['0x10', '0x11', '0x12', '0x13', '0x14', '0x15', '0x16', '0x17',
@@ -101,7 +101,16 @@ class FrameFactory:
         self.hand = w
 
     def getChoices(self):
-        src = (None, None); dst = None
+        def make_card(w):
+            s = w.items[w.choice][1]
+            if s == ' ':
+                s = w.items[1][1]; assert w.choice == 2
+            v = w.items[w.choice][-3]
+            ve = 13 if v == 'K' else 12 if v == 'Q' else 11 if v == 'J' else 10 if v == '0' else int(v)
+            se = 'Pikes' if s == '♠' else 'Hearts' if s == '♥' else 'Tiles' if s == '♦' else 'Clovers'
+            return Card(se, ve)
+
+        src = (None, None); dst = None; card = None
 
         if self.widgets[0].choice == 0:
             dst = 'Empty'
@@ -111,11 +120,15 @@ class FrameFactory:
         for i, w in enumerate(self.widgets[1:]):
             if w.choice == 0:
                 assert dst != 'Empty'
+                logging.debug(f'{w.items} ,  {i}: {w.choice}')
                 dst = i
             elif w.choice > 1:
                 assert src[0] != 'Hand'
+                logging.debug(f'{w.items} ,  {i}: {w.choice}')
                 src = i, w.choice-2
-        return src, dst
+                card = make_card(w)
+    
+        return src, dst, card
                 
 def makeButtons(dialog, stats):
     buttonSend = WColoredButton(7, "SND", C_RED)
@@ -196,7 +209,7 @@ def spawn_and_wait(tstr, difficulty):
         output = r.read()
         return output
 
-def validate_auto_play(original, nl):
+def validate_auto_play(otable, ohand, nl):
     # nl is a nested list of taggedcards, but without type
     # must reconstruct
     def make_cards(l):
@@ -207,17 +220,39 @@ def validate_auto_play(original, nl):
     hand = Hand([c for cards in [p.cards for p in pp if p.tag == 'NonValido'] for c in cards])
     table = Table([p for p in pp if p.tag == 'Valido'])
     assert len(table.cards) == 0 or table.is_valid()
-    if original.equality(table) == True:
+    assert len(otable.flatten()) + len(ohand.cards) == len(hand.cards) + len(table.flatten())
+    if otable.equality(table) == True:
         return 'DRAW'
     else:
         return table, hand
 
-    
+
+def dispatchMove(game, src, dst, to_move):
+    if src[0] is None or src[1] is None or dst is None:
+        return
+    else:
+        table, hand = game.last()
+        t, h = None, None
+        if src[0] == 'Hand' and dst == 'Empty':
+            t, h = state.fromHandToEmpty(table, hand, src[1])
+        elif src[0] == 'Hand' and type(dst) is int:
+            t, h = state.fromHandToTable(table, hand, src[1], dst)
+        elif type(src[0]) is int and dst == 'Empty':
+            t, h = state.fromTableToEmpty(table, hand, src, to_move)
+        elif type(src[0]) is int and type(dst) is int:
+            t, h = state.fromTableToTable(table, hand, src, dst, to_move)
+        else:
+            assert False
+
+        assert t is not None and h is not None
+        logging.info(f"MOVE ({game.nrounds}): {game.cur_player} = {src}:{dst}")
+        return game.advance(t, h)
+
 def make_auto_move(original, game, difficulty):
     table, hand = game.last()
     tstr = state.toJson(table, hand)
     output = spawn_and_wait(tstr, difficulty)
-    res = validate_auto_play(original, json.loads(output))
+    res = validate_auto_play(table, hand, json.loads(output))
     if type(res) is str:
         logging.info(f"BOT-DRAW ({game.nrounds}): {game.cur_player} = {game.last()}")
         game.draw()
@@ -230,10 +265,12 @@ def make_auto_move(original, game, difficulty):
     game.next_turn()
     
 
-def main(difficulty):
-    global exit, action 
+def main(difficulty, dbg=False):
+    global exit, action
 
-    game = state.State(["bot1", ID])
+    dbgCnt = 0
+
+    game = state.State(ID, ["PVR", ID])
     # game = state.State([ID, "bot1"])
 
     game.next_turn()
@@ -243,8 +280,11 @@ def main(difficulty):
             make_auto_move(game.last()[0], game, difficulty)
             if game.hasEnded == True:
                 break
-        if game.hasEnded == True:
-            break
+
+        if dbgCnt >= 3:
+            dbgCnt = 0
+            from IPython import embed as fuck
+            fuck()
 
         with Context():
 
@@ -256,9 +296,12 @@ def main(difficulty):
             f = FrameFactory(dialog)
 
             stats = f' Round: {game.nrounds} - '
-            for idp, h in game.players.items():
-                stats += f'{idp}: {len(h.cards)}, '
-            stats = stats[:-2] + ' ' # remove last comma
+            if game.hasEnded:
+             stats += f'Winner: {game.winner}'
+            else:
+                for idp, h in game.players.items():
+                    stats += f'{idp}: {len(h.cards)}, '
+                stats = stats[:-2] + ' ' # remove last comma
             makeButtons(dialog, stats)
 
             #### FRAMES ####
@@ -271,17 +314,16 @@ def main(difficulty):
             res = dialog.loop()
             if res == 1001 or res == 9: # or res == KEY_END or res == KEY_ESC: # 1001 is exit? # 9 is ctrl-c
                 exit = True
+            elif game.hasEnded:
+                pass
             else:
                 if action == 'EXIT':
                     exit = True
                 elif action == 'MOVE' or res == KEY_ENTER or res == b'm':
                     # TODO: transition effect
-                    src, dst = f.getChoices()
-                    if src[0] is not None and src[1] is not None and dst is not None:
-                        game.move_and_advance(src, dst) # get them from next
-                        logging.info(f"MOVE ({game.nrounds}): {game.cur_player} = {src}:{dst}")
-                    else:
-                        continue
+                    src, dst, ccard = f.getChoices()
+                    logging.debug(ccard)
+                    dispatchMove(game, src, dst, ccard)
                 elif action == 'DRAW' or res == b'd':
                     logging.info(f"DRAW ({game.nrounds}): {game.cur_player} = {game.last()}")
                     game.draw()
@@ -303,27 +345,40 @@ def main(difficulty):
                 elif action == 'BACK':
                     game.backtrack()
                     logging.info(f"BACK ({game.nrounds}): {game.cur_player}")
+                elif res == b'p' and dbg == True:
+                    dbgCnt += 1
                 else:
                     pass
 
     if game.hasEnded:
         print(f'{Fore.RED}' + "Game has ended, player '" + game.winner + "' has won"+f'{Style.RESET_ALL}')
-
+    else:
+        s = input(f'{Fore.MAGENTA}Do you want to save the game? (y/n)\n')
+        while s.lower() not in ['y', 'yes', 'n', 'no']:
+            s = input(f"{Fore.MAGENTA}Please write 'y' or 'n'\n")
+        print(f'{Style.RESET_ALL}')
+        if s.lower() == 'y' or s.lower() == 'yes':
+            game.dump()
 
 if __name__ == '__main__':
     from sys import argv
 
     print(argv[1])
     diff = argv[1]
+    dbg = 'DEBUG' in argv
     if diff == 'easy':
-        main(7)
+        main(7, dbg)
     elif diff == 'medium':
-        main(14)
+        main(14, dbg)
     elif diff == 'hard':
-        main(21)
+        main(21, dbg)
     else:
         try:
             diff = int(diff)
         except:
             print('Wrong argument for difficulty')
-        main(int(diff))
+        main(int(diff), dbg)
+
+
+print('cli interface')
+print('initial screen')
