@@ -1,0 +1,385 @@
+#!/usr/bin/python3
+from picotui.context import Context
+from picotui.screen import Screen
+
+from time import sleep
+import os
+import json
+import logging
+
+from widgets import *
+from state import Table, Hand
+from metro_holografix.cardtypes import *
+import state
+
+logging.basicConfig(level=logging.DEBUG, filename='/tmp/game.log', filemode='a', format='%(levelname)s - %(message)s')
+logging.info("START")
+
+action = ''
+exit = False
+ID = "YOU"
+
+class FrameFactory:
+    titles = ['0x10', '0x11', '0x12', '0x13', '0x14', '0x15', '0x16', '0x17',
+              '0x18', '0x19', '0x1A', '0x1B', '0x1D', '0x1E', '0x1F', '0x20',
+              '0x21', '0x22', '0x23', '0x24', '0x25', '0x26', '0x27',
+              '0x28', '0x29', '0x2A', '0x2B', '0x2D', '0x2E', '0x2F', '0x30'
+              '0x31', '0x32', '0x33', '0x34', '0x35', '0x36', '0x37', '0x00'] # more than enough
+
+    def __init__(self, d):
+        self.np = 13
+        self.d = d
+        self.widgets = []
+        self.x = 1 + self.np
+        self.y = 1
+        self.titlen = 0
+        self.hand = None
+        self.maxwidth = 0
+
+    def constrainAllWidgets(self, callerId):
+        cc = self.widgets[callerId].choice if id != -1 else self.hand.choice
+
+        # check hand first
+        if callerId != -1 and self.hand.choice > 1 and cc > 1:
+            self.hand.choice = 1
+            self.hand.redraw()
+            return
+        # check other widgets    
+        for w in self.widgets:
+            if w.id != callerId and w.choice != 1:
+                if w.choice == 0 and cc == 0:
+                    w.choice = 1
+                    w.redraw()
+                    return
+                elif w.choice > 1 and cc > 1:
+                    w.choice = 1
+                    w.redraw()
+                    return
+                else:
+                    pass
+                
+    def newFrame(self, cards):
+        # can handle 9 frames per row
+        assert type(cards) is list, type(cards)
+
+        h = 2 + len(cards) # height ?
+        self.maxwidth = h if h > self.maxwidth else self.maxwidth
+        title = self.titles[self.titlen]
+        w = WCardRadioButton(cards, len(self.widgets), self.constrainAllWidgets)
+
+        self.d.add(self.x, self.y, WColoredFrame(12, h, title))
+        self.d.add(self.x+1, self.y+1, w)
+
+        self.widgets.append(w)
+        self.advance()
+
+    def advance(self):
+        self.x += self.np
+        self.titlen+=1
+        if self.x > self.np * 9:
+            # second row
+            self.y += self.maxwidth
+            self.x = 1 + self.np  # first column for hand
+
+    def emptyFrame(self):
+        title = self.titles[-1]
+        w = WCardRadioButton(['', ''], len(self.widgets), self.constrainAllWidgets)
+
+        self.d.add(self.x, self.y, WColoredFrame(12, 4, title))
+        self.d.add(self.x+1, self.y+1, w)
+
+        self.widgets.append(w)
+        self.advance()
+        
+
+    def newHandFrame(self, cards):
+        assert type(cards) is list, type(cards)
+        h = 27 # height ?
+        self.d.add(1, 1, WColoredFrame(12, h, 'HAND: '+str(len(cards)-2), blue)) 
+        coloredCards = [f'{Fore.BLUE}'+cards[0]] + cards[1:-1] + [cards[-1]+f'{Style.RESET_ALL}']
+        w = WCardRadioButton(coloredCards, -1, self.constrainAllWidgets, isHand=True)
+        self.d.add(2, 2, w)
+        self.hand = w
+
+    def getChoices(self):
+        def make_card(w):
+            s = w.items[w.choice][1]
+            if s == ' ':
+                s = w.items[1][1]; assert w.choice == 2
+            v = w.items[w.choice][-3]
+            ve = 13 if v == 'K' else 12 if v == 'Q' else 11 if v == 'J' else 10 if v == '0' else int(v)
+            se = 'Pikes' if s == '♠' else 'Hearts' if s == '♥' else 'Tiles' if s == '♦' else 'Clovers'
+            return Card(se, ve)
+
+        src = (None, None); dst = None; card = None
+
+        if self.widgets[0].choice == 0:
+            dst = 'Empty'
+        if self.hand.choice > 1:
+            src = 'Hand', self.hand.choice-2
+
+        for i, w in enumerate(self.widgets[1:]):
+            if w.choice == 0:
+                assert dst != 'Empty'
+                logging.debug(f'{w.items} ,  {i}: {w.choice}')
+                dst = i
+            elif w.choice > 1:
+                assert src[0] != 'Hand'
+                logging.debug(f'{w.items} ,  {i}: {w.choice}')
+                src = i, w.choice-2
+                card = make_card(w)
+    
+        return src, dst, card
+                
+def makeButtons(dialog, stats):
+    buttonSend = WColoredButton(7, "SND", C_RED)
+    dialog.add(108, 28, buttonSend)
+    buttonSend.finish_dialog = ACTION_OK
+    def btnSend(w):
+        global action; action = "SEND"
+    buttonSend.on_click = btnSend
+
+    buttonRst = WColoredButton(7, "RST", C_RED)
+    dialog.add(100, 28, buttonRst)
+    buttonRst.finish_dialog = ACTION_OK
+    def btnReset(w):
+        global action; action = "RESET"
+    buttonRst.on_click = btnReset
+
+    buttonMov = WColoredButton(7, "MOV", C_BLUE)
+    dialog.add(92, 28, buttonMov)
+    buttonMov.finish_dialog = ACTION_OK
+    def btnMove(w):
+        global action; action = "MOVE"
+    buttonMov.on_click = btnMove
+
+    buttonDraw = WColoredButton(7, "DRW", C_RED)
+    dialog.add(84, 28, buttonDraw)
+    buttonDraw.finish_dialog = ACTION_OK
+    def btnDraw(w):
+        global action; action = "DRAW"
+    buttonDraw.on_click = btnDraw
+
+    buttonStats = WColoredButton(13, stats, C_BLACK)
+    dialog.add(15, 28, buttonStats)
+
+    buttonAbort = WColoredButton(13, f'{Fore.BLACK}'+" ABRT "+f'{Style.RESET_ALL}', C_WHITE)
+    dialog.add(4, 28, buttonAbort)
+    buttonAbort.finish_dialog = ACTION_OK
+    def doExit(w):
+        global action ; action = "EXIT"
+    buttonAbort.on_click = doExit
+
+    buttonback = WColoredButton(7, " BAK ", C_MAGENTA)
+    dialog.add(76, 28, buttonback)
+    buttonback.finish_dialog = ACTION_OK
+    def doBack(w):
+        global action ; action = "BACK"
+    buttonback.on_click = doBack
+
+def wrong_play():
+    from sys import stdout
+    os.system('clear')
+    print(f'{Fore.RED}'+'Wrong play. Retry...'+f'{Style.RESET_ALL}')
+    sleep(2)
+
+def spawn_and_wait(tstr, difficulty):
+    import sys
+    from subprocess import PIPE, Popen
+    from animation.octopus import animate
+
+    r, w = os.pipe()
+    pid = os.fork()
+    if pid == 0:
+        # child
+        os.close(r)
+        res = Popen(["../hosaka/_build/default/main.exe", str(difficulty)], stdout=PIPE, stdin=PIPE)
+        out, err = res.communicate(tstr.encode('utf-8'))
+        print(out, err)
+        res.stdin.close()
+        w = os.fdopen(w, 'w')
+        w.write(out.decode('utf-8'))
+        sys.exit()
+    else:
+        os.close(w)
+        p = os.waitpid(pid, os.WNOHANG)
+        while p == (0, 0):
+            animate(10)
+            p = os.waitpid(pid, os.WNOHANG)
+        r = os.fdopen(r)
+        output = r.read()
+        return output
+
+def validate_auto_play(otable, ohand, nl):
+    # nl is a nested list of taggedcards, but without type
+    # must reconstruct
+    def make_cards(l):
+        return Card(*l)
+    pp = []
+    for ts in nl:
+        pp.append(TaggedCards([make_cards(cl) for cl in ts]))
+    hand = Hand([c for cards in [p.cards for p in pp if p.tag == 'NonValido'] for c in cards])
+    table = Table([p for p in pp if p.tag == 'Valido'])
+    assert len(table.cards) == 0 or table.is_valid()
+    assert len(otable.flatten()) + len(ohand.cards) == len(hand.cards) + len(table.flatten())
+    if otable.equality(table) == True:
+        return 'DRAW'
+    else:
+        return table, hand
+
+
+def dispatchMove(game, src, dst, to_move):
+    if src[0] is None or src[1] is None or dst is None:
+        return
+    else:
+        table, hand = game.last()
+        t, h = None, None
+        if src[0] == 'Hand' and dst == 'Empty':
+            t, h = state.fromHandToEmpty(table, hand, src[1])
+        elif src[0] == 'Hand' and type(dst) is int:
+            t, h = state.fromHandToTable(table, hand, src[1], dst)
+        elif type(src[0]) is int and dst == 'Empty':
+            t, h = state.fromTableToEmpty(table, hand, src, to_move)
+        elif type(src[0]) is int and type(dst) is int:
+            t, h = state.fromTableToTable(table, hand, src, dst, to_move)
+        else:
+            assert False
+
+        assert t is not None and h is not None
+        logging.info(f"MOVE ({game.nrounds}): {game.cur_player} = {src}:{dst}")
+        return game.advance(t, h)
+
+def make_auto_move(original, game, difficulty):
+    table, hand = game.last()
+    tstr = state.toJson(table, hand)
+    output = spawn_and_wait(tstr, difficulty)
+    res = validate_auto_play(table, hand, json.loads(output))
+    if type(res) is str:
+        logging.info(f"BOT-DRAW ({game.nrounds}): {game.cur_player} = {game.last()}")
+        game.draw()
+    elif type(res) is tuple:
+        logging.info(f"BOT-MOVE ({game.nrounds}): {game.cur_player} = {res}")
+        game.advance(*res)
+        game.done()
+    else:
+        assert False, type(res)
+    game.next_turn()
+    
+
+def main(difficulty, dbg=False):
+    global exit, action
+
+    dbgCnt = 0
+
+    game = state.State(ID, ["PVR", ID])
+    # game = state.State([ID, "bot1"])
+
+    game.next_turn()
+
+    while not exit and not game.hasEnded:
+        while game.cur_player != ID:
+            make_auto_move(game.last()[0], game, difficulty)
+            if game.hasEnded == True:
+                break
+
+        if dbgCnt >= 3:
+            dbgCnt = 0
+            from IPython import embed as fuck
+            fuck()
+
+        with Context():
+
+            table, hand = game.last()
+            Screen.attr_color(C_WHITE, C_GREEN)
+            Screen.cls()
+            Screen.attr_reset()
+            dialog = Dialog(1, 1,  120, 30)
+            f = FrameFactory(dialog)
+
+            stats = f' Round: {game.nrounds} - '
+            if game.hasEnded:
+             stats += f'Winner: {game.winner}'
+            else:
+                for idp, h in game.players.items():
+                    stats += f'{idp}: {len(h.cards)}, '
+                stats = stats[:-2] + ' ' # remove last comma
+            makeButtons(dialog, stats)
+
+            #### FRAMES ####
+            f.emptyFrame()
+            for cards in table.widget_repr():
+                f.newFrame(cards)
+            f.newHandFrame(hand.widget_repr())
+
+            dialog.redraw()
+            res = dialog.loop()
+            if res == 1001 or res == 9: # or res == KEY_END or res == KEY_ESC: # 1001 is exit? # 9 is ctrl-c
+                exit = True
+            elif game.hasEnded:
+                pass
+            else:
+                if action == 'EXIT':
+                    exit = True
+                elif action == 'MOVE' or res == KEY_ENTER or res == b'm':
+                    # TODO: transition effect
+                    src, dst, ccard = f.getChoices()
+                    logging.debug(ccard)
+                    dispatchMove(game, src, dst, ccard)
+                elif action == 'DRAW' or res == b'd':
+                    logging.info(f"DRAW ({game.nrounds}): {game.cur_player} = {game.last()}")
+                    game.draw()
+                    game.next_turn()
+                elif action == 'RESET':
+                    while game.size() > 1:
+                        game.backtrack()
+                    logging.info(f"RESET ({game.nrounds}): {game.cur_player}")
+                elif action == 'SEND' or res == b's':
+                    try:
+                        th = game.last()
+                        pl = game.cur_player
+                        game.done()
+                        logging.info(f"DONE ({game.nrounds}): {pl}' = {th}")
+                        game.next_turn()
+                    except state.WrongMoveException as e:
+                        wrong_play()
+                        logging.info(f"WRONGPLAY ({game.nrounds}): {game.cur_player} = {game.last()}")
+                elif action == 'BACK':
+                    game.backtrack()
+                    logging.info(f"BACK ({game.nrounds}): {game.cur_player}")
+                elif res == b'p' and dbg == True:
+                    dbgCnt += 1
+                else:
+                    pass
+
+    if game.hasEnded:
+        print(f'{Fore.RED}' + "Game has ended, player '" + game.winner + "' has won"+f'{Style.RESET_ALL}')
+    else:
+        s = input(f'{Fore.MAGENTA}Do you want to save the game? (y/n)\n')
+        while s.lower() not in ['y', 'yes', 'n', 'no']:
+            s = input(f"{Fore.MAGENTA}Please write 'y' or 'n'\n")
+        print(f'{Style.RESET_ALL}')
+        if s.lower() == 'y' or s.lower() == 'yes':
+            game.dump()
+
+if __name__ == '__main__':
+    from sys import argv
+
+    print(argv[1])
+    diff = argv[1]
+    dbg = 'DEBUG' in argv
+    if diff == 'easy':
+        main(7, dbg)
+    elif diff == 'medium':
+        main(14, dbg)
+    elif diff == 'hard':
+        main(21, dbg)
+    else:
+        try:
+            diff = int(diff)
+        except:
+            print('Wrong argument for difficulty')
+        main(int(diff), dbg)
+
+
+print('cli interface')
+print('initial screen')
