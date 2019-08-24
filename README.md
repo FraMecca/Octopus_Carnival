@@ -36,7 +36,12 @@ Then run the executable
 ```
 ./ono_sendai/start
 ```
-[![Example](https://raw.githubusercontent.com/FraMecca/Octopus_Carnival/master/ono_sendai/animation/rec.shot.jpg)](https://raw.githubusercontent.com/FraMecca/Octopus_Carnival/master/ono_sendai/animation/rec.mp4)
+
+## Example
+
+Click to play the video.
+
+[![Example](https://raw.githubusercontent.com/FraMecca/Octopus_Carnival/master/ono_sendai/animation/rec.shot.jpg)](https://raw.githubusercontent.com/FraMecca/Octopus_Carnival/master/ono_sendai/animation/rec.webm)
 
 
 ## Contributing
