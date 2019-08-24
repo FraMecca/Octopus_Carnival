@@ -41,7 +41,7 @@ Then run the executable
 
 [Click](https://raw.githubusercontent.com/FraMecca/Octopus_Carnival/master/ono_sendai/animation/rec.webm) to play the video.
 
-[![Example](https://raw.githubusercontent.com/FraMecca/Octopus_Carnival/master/ono_sendai/animation/rec.shot.jpg)](https://raw.githubusercontent.com/FraMecca/Octopus_Carnival/master/ono_sendai/animation/rec.webm)
+[![Example](https://raw.githubusercontent.com/FraMecca/Octopus_Carnival/master/ono_sendai/animation/rec.shot.gif)](https://raw.githubusercontent.com/FraMecca/Octopus_Carnival/master/ono_sendai/animation/rec.webm)
 
 
 ## Contributing
