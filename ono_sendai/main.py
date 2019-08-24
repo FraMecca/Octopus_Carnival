@@ -179,7 +179,7 @@ def makeButtons(dialog, stats):
 def wrong_play():
     from sys import stdout
     os.system('clear')
-    print(f'{Fore.RED}'+'Wrong play. Retry...'+f'{Style.RESET_ALL}')
+    print(f'{Fore.RED}'+'Wrong move. Retry...'+f'{Style.RESET_ALL}')
     sleep(2)
 
 def spawn_and_wait(tstr, difficulty):
@@ -194,7 +194,7 @@ def spawn_and_wait(tstr, difficulty):
         os.close(r)
         res = Popen(["../hosaka/_build/default/main.exe", str(difficulty)], stdout=PIPE, stdin=PIPE)
         out, err = res.communicate(tstr.encode('utf-8'))
-        print(out, err)
+        # print(out, err)
         res.stdin.close()
         w = os.fdopen(w, 'w')
         w.write(out.decode('utf-8'))
@@ -266,12 +266,15 @@ def make_auto_move(original, game, difficulty):
     
 
 def main(difficulty, dbg=False):
+    from animation.octopus import intro
+    
     global exit, action
 
     dbgCnt = 0
 
+    intro()
+    sleep(1)
     game = state.State(ID, ["PVR", ID])
-    # game = state.State([ID, "bot1"])
 
     game.next_turn()
 
@@ -363,7 +366,6 @@ def main(difficulty, dbg=False):
 if __name__ == '__main__':
     from sys import argv
 
-    print(argv[1])
     diff = argv[1]
     dbg = 'DEBUG' in argv
     if diff == 'easy':
@@ -378,7 +380,3 @@ if __name__ == '__main__':
         except:
             print('Wrong argument for difficulty')
         main(int(diff), dbg)
-
-
-print('cli interface')
-print('initial screen')
