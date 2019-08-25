@@ -357,10 +357,16 @@ def main(difficulty, game, dbg=False):
     if game.hasEnded:
         print(f'{Fore.RED}' + "Game has ended, player '" + game.winner + "' has won"+f'{Style.RESET_ALL}')
     else:
-        s = input(f'{Fore.MAGENTA}Write a filename if you want to save the game status or press enter to exit\n')
+    s = input(f'{Fore.MAGENTA}Do you want to save the game? (y/n)\n')
+    while s.lower() not in ['y', 'yes', 'n', 'no']:
+        s = input(f"{Fore.MAGENTA}Please write 'y' or 'n'\n")
         print(f'{Style.RESET_ALL}')
-        if s != '':
-            game.dump(s)
+        if s.lower() == 'y' or s.lower() == 'yes':
+            fname = ''
+            while fname == '':
+                fname = input('Choose a filename: ')
+            game.dump(fname)
+        print(f'{Style.RESET_ALL}')
 
 def parse_args(argv):
     import argparse
