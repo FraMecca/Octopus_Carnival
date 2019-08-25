@@ -75,7 +75,7 @@ class Hand:
         return yi
 
 def make_deck():
-    from random import shuffle # TODO: mersenne
+    from random import shuffle
     def make_set(seed):
         for i in range(1, 14):
             yield Card(seed, i)
@@ -159,6 +159,7 @@ class State:
         for pl, hand in self.players.items():
             j[pl] = hand.cards
         j['nrounds'] = self.nrounds
+        j['deck'] = self.deck
         j['players'] = list(self.players.keys())
         with open('save.machiavelli', 'w') as f:
             f.write(json.dumps(j))
@@ -168,6 +169,7 @@ class State:
         with open('save.machiavelli', 'r') as f:
             j = json.loads(f.read())
         self.nrounds = j['nrounds']
+        self.deck = [Card(seed, value) for seed, value in j['deck']]
         tcards = []
         for tc in j['table']:
             tcards.append(TaggedCards([Card(seed, value) for seed, value in tc]))
@@ -191,23 +193,6 @@ def toJson(table, hand):
     for tc in table.cards:
         j['table'].append(tc.cards)
     return json.dumps(j)
-
-# def gioca(tavolo, hand, src, dst):
-#     giocata = [] if dst == 'Empty' else tavolo.cards[dst]
-#     da_muovere = hand.cards[src[1]] if src[0] == 'Hand' else tavolo.cards[src[0]].cards[src[1]]
-#     hcards = hand.cards[:src[1]] + hand.cards[src[1]+1:] if src[0] == 'Hand' else hand.cards
-#     assert src[0] != 'Hand' or len(hcards) == len(hand.cards) - 1
-
-#     assert type(dst) is int or dst == 'Empty'
-#     assert type(src[0]) is int or src[0] == 'Hand'
-#     assert type(da_muovere) is Card
-#     assert type(giocata) is TaggedCards or giocata == []
-
-#     idx = -1 if dst == 'Empty' else tavolo.cards.index(giocata)
-#     if type(giocata) is list: # we want a new empty cell
-#         news = [TaggedCards([da_muovere])]
-#     else:
-#         news = []
 
 def fromHandToEmpty(table, hand, src):
     assert type(src) is int
