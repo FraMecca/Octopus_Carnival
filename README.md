@@ -63,11 +63,7 @@ The folder structure follows a non standard layout for personal reasons.
 ├── makefile
 ├── metro_holografix
 │   ├── cardtypes.py
-│   └── scrapes
-│       ├── alg.py
-│       ├── cardtypes.py
-│       ├── test.py
-│       └── vecchio.py
+│   └── scrapes/
 ├── ono_sendai
 │   ├── animation/
 │   ├── start
