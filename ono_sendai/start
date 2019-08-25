@@ -7,6 +7,7 @@ import os
 import json
 import logging
 import random
+import sys
 
 from widgets import *
 from state import Table, Hand
@@ -357,20 +358,20 @@ def main(difficulty, game, dbg=False):
     if game.hasEnded:
         print(f'{Fore.RED}' + "Game has ended, player '" + game.winner + "' has won"+f'{Style.RESET_ALL}')
     else:
-    s = input(f'{Fore.MAGENTA}Do you want to save the game? (y/n)\n')
-    while s.lower() not in ['y', 'yes', 'n', 'no']:
-        s = input(f"{Fore.MAGENTA}Please write 'y' or 'n'\n")
-        print(f'{Style.RESET_ALL}')
-        if s.lower() == 'y' or s.lower() == 'yes':
-            fname = ''
-            while fname == '':
-                fname = input('Choose a filename: ')
-            game.dump(fname)
-        print(f'{Style.RESET_ALL}')
+        s = input(f'{Fore.MAGENTA}Do you want to save the game? (y/n)\n')
+        while s.lower() not in ['y', 'yes', 'n', 'no']:
+            s = input(f"{Fore.MAGENTA}Please write 'y' or 'n'\n")
+            print(f'{Style.RESET_ALL}')
+            if s.lower() == 'y' or s.lower() == 'yes':
+                fname = ''
+                while fname == '':
+                    fname = input('Choose a filename: ')
+                game.dump(fname)
+            print(f'{Style.RESET_ALL}')
 
 def parse_args(argv):
     import argparse
-    parser = argparse.ArgumentParser(description='Octopus Carnival.')
+    parser = argparse.ArgumentParser(description="")
     parser.add_argument('--difficulty', type=str, nargs=1, default='medium',
                         help='[easy|medium|hard|n]')
     parser.add_argument('--seed', type=int, nargs=1, default=None,
@@ -379,6 +380,8 @@ def parse_args(argv):
                         help='provide access to the REPL')
     parser.add_argument('--load', type=str, nargs=1, default='',
                         help='load a savefile')
+    parser.add_argument('--about',  action='store_const', const=True,
+                        help='information about this game')
 
     args = parser.parse_args(argv)
     return vars(args)
@@ -387,7 +390,14 @@ if __name__ == '__main__':
     from sys import argv
 
     args = parse_args(argv[1:])
-    print(args)
+    if args['about'] is not None:
+        from animation.octopus import intro_text
+        # print(f'{Fore.MAGENTA}' + intro_text)
+        print(intro_text)
+        print("Press 'd' for drawing a card, m to 'move' a card, 's' to confirm the move.\n")
+        # print(f'{Style.RESET_ALL}')
+        sys.exit(0)
+
     diff = args['difficulty'][0]
     d = {'medium':14, 'hard':21, 'easy':7}
     try:

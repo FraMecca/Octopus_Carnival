@@ -19,12 +19,13 @@ def animate(n):
         sleep(0.2)
         system('clear')
 
+with open('animation/intro2.txt', 'r') as f:
+    intro_text = f.read()
+
 def intro():
-    with open('animation/intro2.txt', 'r') as f:
-        anim = f.read()
     system('clear')
     print(f'{Fore.MAGENTA}', end='')
-    for ch in anim:
+    for ch in intro_text:
         print(ch, end='')
         sys.stdout.flush()
         sleep(0.01)
