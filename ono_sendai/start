@@ -6,6 +6,7 @@ from time import sleep
 import os
 import json
 import logging
+import random
 
 from widgets import *
 from state import Table, Hand
@@ -266,7 +267,7 @@ def make_auto_move(original, game, difficulty):
     game.next_turn()
     
 
-def main(difficulty, dbg=False):
+def main(difficulty, game, dbg=False):
     from animation.octopus import intro
     
     global exit, action
@@ -275,7 +276,6 @@ def main(difficulty, dbg=False):
 
     intro()
     sleep(1)
-    game = state.State(ID, ["PVR", ID])
 
     game.next_turn()
 
@@ -357,27 +357,44 @@ def main(difficulty, dbg=False):
     if game.hasEnded:
         print(f'{Fore.RED}' + "Game has ended, player '" + game.winner + "' has won"+f'{Style.RESET_ALL}')
     else:
-        s = input(f'{Fore.MAGENTA}Do you want to save the game? (y/n)\n')
-        while s.lower() not in ['y', 'yes', 'n', 'no']:
-            s = input(f"{Fore.MAGENTA}Please write 'y' or 'n'\n")
+        s = input(f'{Fore.MAGENTA}Write a filename if you want to save the game status or press enter to exit\n')
         print(f'{Style.RESET_ALL}')
-        if s.lower() == 'y' or s.lower() == 'yes':
-            game.dump()
+        if s != '':
+            game.dump(s)
+
+def parse_args(argv):
+    import argparse
+    parser = argparse.ArgumentParser(description='Octopus Carnival.')
+    parser.add_argument('--difficulty', type=str, nargs=1, default='medium',
+                        help='[easy|medium|hard|n]')
+    parser.add_argument('--seed', type=int, nargs=1, default=None,
+                        help='Seed for randomness')
+    parser.add_argument('--debug',  action='store_const', const=True,
+                        help='provide access to the REPL')
+    parser.add_argument('--load', type=str, nargs=1, default='',
+                        help='load a savefile')
+
+    args = parser.parse_args(argv)
+    return vars(args)
 
 if __name__ == '__main__':
     from sys import argv
 
-    diff = argv[1]
-    dbg = 'DEBUG' in argv
-    if diff == 'easy':
-        main(7, dbg)
-    elif diff == 'medium':
-        main(14, dbg)
-    elif diff == 'hard':
-        main(21, dbg)
-    else:
-        try:
-            diff = int(diff)
-        except:
-            print('Wrong argument for difficulty')
-        main(int(diff), dbg)
+    args = parse_args(argv[1:])
+    print(args)
+    diff = args['difficulty'][0]
+    d = {'medium':14, 'hard':21, 'easy':7}
+    try:
+        diff = int(diff) if diff.isdigit() else d[diff]
+    except:
+        print('Can\'t parse difficulty')
+
+    random.seed = args['seed'][0] if args['seed'] is not None else os.urandom(1)
+    dbg = args['debug'] is not None
+        
+    game = state.State(ID, ["PVR", ID])
+    if args['load']:
+        game.load(args['load'][0])
+
+    # start the game
+    main(diff, game, dbg)

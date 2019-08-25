@@ -153,7 +153,7 @@ class State:
         self.turn.append((table, hand))
         return table, hand
 
-    def dump(self):
+    def dump(self, fname):
         j = dict()
         j['table'] = [tc.cards for tc in self.table.cards]
         for pl, hand in self.players.items():
@@ -161,12 +161,12 @@ class State:
         j['nrounds'] = self.nrounds
         j['deck'] = self.deck
         j['players'] = list(self.players.keys())
-        with open('save.machiavelli', 'w') as f:
+        with open(fname, 'w') as f:
             f.write(json.dumps(j))
         return j
 
-    def load(self):
-        with open('save.machiavelli', 'r') as f:
+    def load(self, fname):
+        with open(fname, 'r') as f:
             j = json.loads(f.read())
         self.nrounds = j['nrounds']
         self.deck = [Card(seed, value) for seed, value in j['deck']]
