@@ -36,7 +36,12 @@ Then run the executable
 ```
 ./ono_sendai/start
 ```
-[![Example](https://raw.githubusercontent.com/FraMecca/Octopus_Carnival/master/ono_sendai/animation/rec.shot.jpg)](https://raw.githubusercontent.com/FraMecca/Octopus_Carnival/master/ono_sendai/animation/rec.mp4)
+
+## Example
+
+[Click](https://raw.githubusercontent.com/FraMecca/Octopus_Carnival/master/ono_sendai/animation/rec.webm) to play the video.
+
+[![Example](ono_sendai/animation/shot.gif)](https://raw.githubusercontent.com/FraMecca/Octopus_Carnival/master/ono_sendai/animation/rec.webm)
 
 
 ## Contributing
@@ -58,11 +63,7 @@ The folder structure follows a non standard layout for personal reasons.
 ├── makefile
 ├── metro_holografix
 │   ├── cardtypes.py
-│   └── scrapes
-│       ├── alg.py
-│       ├── cardtypes.py
-│       ├── test.py
-│       └── vecchio.py
+│   └── scrapes/
 ├── ono_sendai
 │   ├── animation/
 │   ├── start
